@@ -2,7 +2,9 @@
 title: "ML1000 Assignment 3"
 author: "Crystal Zhu"
 date: "07/03/2021"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ## Data Understanding
@@ -28,12 +30,66 @@ Steps:
 
 
 
-```{r}
-library(arules)
-X=read.transactions("C:/Users/yunan/Downloads/York U/Machine Learning Cert/Assignment 3/data/orders_TRAIN_products_MERGED.csv")
+```{r, echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE, results='asis'}
 
-X_apri_rule=apriori(X$,parameter=list(supp=0.05, conf=0.5))
-inspect(X_apri_rule[1:2])
+library(arules)
+library(xtable)
+options(xtable.floating = FALSE)
+options(xtable.timestamp = "")
+options(xtable.comment = FALSE)
+
+####### Convert the merged dataset into a TRANSACTION FORM FOR R ############
+X=read.csv("C:/Users/yunan/Downloads/York U/Machine Learning Cert/Assignment 3/data/orders_TRAIN_products_MERGED.csv")
+
+
+#split(x,f) divides the data in the vector x into the groups defined by f
+#split(x,f) returns a list, and the components of the list are named by the levels of f
+#so basically it returns the frequency table at each level of f(aka, the frequency of each product in our cases)
+
+orders=unique(X$order_id)
+
+set.seed(123)
+#select 100 unique orders for demo
+order_sample=sample(orders,100,replace = F)
+
+X1=subset(X,order_id %in% order_sample)
+
+X1$order_id=as.factor(X1$order_id)
+X1$product_id=as.factor(X1$product_id)
+X1$product_name=as.factor(X1$product_name)
+
+length(unique(X1$product_name))
+#39,123 unique product names
+
+#create the item list
+Order_by_product <- split(X1$product_name, X1$order_id)
+
+Order_by_product[[1]]
+#the first element of Order_by_product is all the items from the first order
+length(Order_by_product)
+#97
+length(unique(X1$order_id))
+#97 - so the length of Order_by_product is the number of orders
+
+#Coerce the Item List to the Transactions class
+#convert transaction data in dataframe to transaction object
+X1_trans <- as(Order_by_product, "transactions")
+
+X1_trans@data@i[1:5]
+#the product index/position from each order sequentially
+X1_trans@data@p[1:5]
+#the cummulative number of iterms from each order
+X1_trans@data@Dim
+#number of unique products * number of orders
+X1_trans@itemInfo$labels[1:5]
+#labels contain the product names in our case
+
+
+#apply apriori rule
+X_apri_rule=apriori(X1_trans,parameter=list(supp=0.02, conf=0.5))
+
+xtable(as.data.frame(inspect(X_apri_rule[1:15])))
+#if we select orders from the same person/if the number of transactions is not large, the overlapping of products from different products tend to be small - so the rules are mostly of single products!
 ```
 
 
