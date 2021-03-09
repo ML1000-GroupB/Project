@@ -30,13 +30,10 @@ Steps:
 
 
 
-```{r, echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE, results='asis'}
+```{r, message=FALSE, warning=FALSE}
 
 library(arules)
-library(xtable)
-options(xtable.floating = FALSE)
-options(xtable.timestamp = "")
-options(xtable.comment = FALSE)
+
 
 ####### Convert the merged dataset into a TRANSACTION FORM FOR R ############
 X=read.csv("C:/Users/yunan/Downloads/York U/Machine Learning Cert/Assignment 3/data/orders_TRAIN_products_MERGED.csv")
@@ -84,12 +81,27 @@ X1_trans@data@Dim
 X1_trans@itemInfo$labels[1:5]
 #labels contain the product names in our case
 
+library(RColorBrewer)
+itemFrequencyPlot(X1_trans,topN=10,type="absolute",col=brewer.pal(8,'Pastel2'), main="Absolute Item Frequency Plot")
+
 
 #apply apriori rule
 X_apri_rule=apriori(X1_trans,parameter=list(supp=0.02, conf=0.5))
 
-xtable(as.data.frame(inspect(X_apri_rule[1:15])))
+inspect(X_apri_rule[1:15])
 #if we select orders from the same person/if the number of transactions is not large, the overlapping of products from different products tend to be small - so the rules are mostly of single products!
+
+
+ summary(X_apri_rule)
+ 
+ 
+ topRules <- head(X_apri_rule, n = 10, by = "lift")
+
+ library(arulesViz)
+ #interactive plot in html
+ #plot(topRules, method = "graph",  engine = "htmlwidget",main="Top 10 rules")
+  plot(topRules, method = "graph",  main="Top 10 rules")
+
 ```
 
 
