@@ -1,4 +1,7 @@
 ---
+title: "ML1000 Assignment 3"
+author: "Queenie Tsang"
+date: "09/03/2021"
 output:
   pdf_document: default
   html_document: default
@@ -6,118 +9,186 @@ output:
 
 Instacart Market Basket Analysis dataset obtained from https://www.kaggle.com/c/instacart-market-basket-analysis/data (https://www.kaggle.com/c/instacart-market-basket-analysis/data)
 
-```{r}
-setwd("C:/Users/qt09n/Desktop/market")
+The goal of the competition is to predict which products will be in a user's next order. 
 
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
 library(tidyr)
 library(dplyr)
-```
-
-
-```{r}
-aisles <- read.csv("aisles.csv")
-department <- read.csv("departments.csv")
-orders <- read.csv("orders.csv")
-order_products_prior <- read.csv("order_products__prior.csv")
-order_products_train <- read.csv("order_products__train.csv")
-products <- read.csv("products.csv")
-sample_submission <- read.csv("sample_submission.csv")
+library(arules)    #provides the infrastructure for representing, manipulating and analyzing transaction data and patterns (frequent itemsets and  #association rules)
+library(arulesViz)
+library(tidyverse)
+library(ggplot2)
+library(lubridate)  #work with date and time data
 
 ```
 
 
-datasets have different number of rows, may be hard to combine
-
-select which dataset to include??
-
 ```{r}
-str(order_products_prior)
-```
-32434489 obs. of  4 variable:
-
-```{r}
-str(orders)
-```
-```{r}
-str(products)
-```
-
-```{r}
-str(order_products_train)
-```
-
-```{r}
-str(order_products_prior)
-```
-```{r}
-str(aisles)
-```   
-
-```{r}
-str(department)
-```
-```{r}
-attributes <-c("aisle_id", "aisle", "department_id", "department", "order_id", "product_id","add_to_cart_order", "reordered", "product_name", "user_id", "order_number", "order_dow", "order_hour_of_day", "days_since_prior_order", "eval_set" )
-```
-
-```{r}
-length(attributes)
-```
-```{r}
-
-length(unique(aisles$aisle_id))
-```
-```{r}
-length(unique(aisles$aisle))
-```
-
-```{r}
-#merge aisles and products data frame by aisle_id
-combined <- merge(products, aisles, by="aisle_id")
-
-#join department with combined(aisles + products dataset) by common department_id column
-combined2 <- merge(combined, department, by="department_id")
-```
-
-#Info about Order_products__*.csv from Kaggle website:
-
-order_products__*.csv
-
-These files specify which products were purchased in each order. order_products__prior.csv contains previous order contents for all customers. 'reordered' indicates that the customer has a previous order that contains the product. Note that some orders will have no reordered items. You may predict an explicit 'None' value for orders with no reordered items. See the evaluation page for full details.
-
-
-orders.csv
-
-This file tells to which set (prior, train, test) an order belongs. You are predicting reordered items only for the test set orders. 'order_dow' is the day of week.
-
-
-```{r}
-glimpse(orders)
-```
-
-```{r}
-glimpse(order_products_prior)
+# aisles <- read.csv("aisles.csv")
+# department <- read.csv("departments.csv")
+# orders <- read.csv("orders.csv")
+# order_products_prior <- read.csv("order_products__prior.csv")
+# order_products_train <- read.csv("order_products__train.csv")
+# products <- read.csv("products.csv")
+# sample_submission <- read.csv("sample_submission.csv")
 
 ```
 
+Read in the merged training data set:
 ```{r}
-glimpse(order_products_train)
+X <- read.csv("C:/Users/qt09n/Desktop/Project/orders_TRAIN_products_MERGED.csv")
 ```
 
 ```{r}
-unique(orders$eval_set)
+str(X)
 ```
-
-we are predicting reordered items only for the test set orders. 'order_dow' is the day of week.
-
-To make a separate dataframe for test data:
+Check missing values: complete.cases will return a logical vector indicating which rows have no missing values. Then use the vector
+to get only complete rows with X[,]
 ```{r}
-test <- orders[orders$eval_set=="test",]
+X <- X[complete.cases(X),]
+
 ```
-
-
-To make a separate dataframe just for the train and prior rows from the eval_set column of orders:
+look at first 10 rows of dataset
 ```{r}
-orders_train_prior <- dplyr::filter(orders, eval_set %in% c("prior", "train"))
+head(X)
 ```
 
+```{r}
+summary(X)
+```
+
+
+Change the character columns to factors and create a new column using mutate:
+```{r}
+X$product_name <- as.factor(X$product_name)
+X$department<- as.factor(X$department)
+X$aisle <- as.factor(X$aisle)
+```
+
+```{r}
+unique(X$aisle)
+#134 aisles
+```
+```{r}
+unique(X$department)
+levels(X$department)
+#21 departments
+```
+```{r}
+length(unique(X$product_name))
+#39123 products
+```
+```{r}
+class(X$order_hour_of_day)
+#[1] "integer"
+```
+
+How many unique orders are in the training dataset?
+```{r}
+length(unique(X$order_id))
+```
+
+How many users are in the training dataset?
+```{r}
+length(unique(X$user_id))
+```
+So it looks like the number of users are the same as the number of orders...
+
+
+Recode order_hour_of_day to numeric:
+```{r}
+X$order_hour_of_day <- as.numeric(X$order_hour_of_day)
+```
+
+Look at when people order:
+```{r}
+X %>% ggplot(aes(x= order_hour_of_day)) +
+  geom_bar(stat="count", fill="green")
+```
+People mostly order from 8:00 - 17:00 (8AM - 5PM).
+
+Most frequently bought products
+```{r}
+X %>% ggplot(aes(x= department)) +
+  geom_histogram(stat="count", fill="green")+
+  coord_flip()
+
+```
+Most orders come from the produce aisle, with snacks and dairy, eggs among the top 3 department aisles. 
+
+'order_dow' is the day of week. Which days are orders more commonly placed on?
+```{r}
+X %>% ggplot(aes(x=order_dow))+
+      geom_histogram()
+#Sunday, Monday and Saturday appear to be the most common days where people place their orders.
+```
+How many days pass between an order and the next order?
+```{r}
+X %>% ggplot(aes(x=days_since_prior_order))+
+      geom_histogram()
+```
+People most commonly order again after 30 days (1 month), or 7 days (1 week).
+
+```{r}
+  ggplot(X) +
+geom_bar(mapping= aes(x=reordered))
+
+```
+X_merge column is not needed for association rule mining, so can set to NULL:
+```{r}
+X$X_merge <- NULL
+```
+Need to convert dataframe to transaction data so that all items bought together in one order is in one row. Currently different products from the same order are in their own rows (singles format).
+
+```{r}
+library(plyr)
+#ddply(dataframe, variables_to_be_used_to_split_data_frame, function_to_be_applied)
+
+transactionData <- ddply(X, c("order_id","user_id"),
+                       function(df1)paste(df1$product_name,     #paste is used to concatenate vectors to       characters
+                       collapse = ","))     #collapse is used to separate the concatenated product names with a comma
+```
+
+Look at the transaction data. This is currently in the form of a basket format:
+```{r, warning= FALSE, echo=FALSE, message=FALSE}
+transactionData
+```
+
+
+#set order id and user id to NULL in the transaction dataset since it will not be needed for item association
+```{r}
+transactionData$order_id <- NULL
+transactionData$user_id <- NULL
+```
+rename column to items
+```{r}
+colnames(transactionData) <- c("items")
+```
+
+write the transaction data csv into a csv file:
+```{r}
+write.csv(transactionData,"C:/Users/qt09n/Desktop/Project/market_basket_transactions.csv", quote = FALSE, row.names = FALSE)
+```
+
+take the transaction data file which is in basket format and convert it to an object of the transaction class
+```{r, warning= FALSE, echo=FALSE, message=FALSE}
+tr <- read.transactions('C:/Users/qt09n/Desktop/Project/market_basket_transactions.csv', format = 'basket', sep=',')
+```
+```{r}
+tr
+```
+```{r}
+summary(tr)
+```
+
+ 131210 transactions (rows) and 50153 items (columns). 50153 is the product names. Density is the percentage of non-zero cells in a sparse matrix, which is the total number of items purchased divided by a possible number of items in that matrix. 
+ 
+To calculate how many items were purchased: 131210 x 50153 x 0.00020449 = 1345662
+
+A sparse matrix is a matrix in which most elements are zero.
+
+
+
+## References
+
+https://www.datacamp.com/community/tutorials/market-basket-analysis-r#code
