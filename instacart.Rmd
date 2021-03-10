@@ -1,0 +1,99 @@
+---
+title: "instacart"
+author: 
+date: "09/03/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+library(dplyr)
+```
+
+
+```{r}
+#Import data
+
+orders<-read.csv("orders.csv")
+products<-read.csv("products.csv")
+departments<-read.csv("departments.csv")
+prior<-read.csv("order_products__prior.csv")
+train<-read.csv("order_products__train.csv")
+
+
+```
+```{r}
+
+
+
+head(orders)
+#dim(orders)
+
+orders %>% 
+  filter(order_id==2)
+
+
+orders %>% 
+  filter(user_id==202279)
+```
+```{r}
+head(prior)
+
+prior %>% 
+  filter(order_id==2)
+
+```
+```{r}
+#merge prior & order 
+
+prior_order<-orders %>% 
+  filter(eval_set=="prior") %>% 
+    left_join(prior,orders,by=c("order_id"))
+
+
+```
+
+```{r}
+prior_order%>% 
+  filter(order_id==2)
+
+
+prior_order %>% 
+  filter(user_id==202279)
+```
+
+```{r}
+#merge train and order
+
+train_order<-orders %>% 
+  filter(eval_set=="train") %>% 
+    left_join(prior,orders,by=c("order_id"))
+
+
+```
+
+
+
+```{r}
+#merge test and order
+
+test_order<-orders %>% 
+  filter(eval_set=="test") %>% 
+    left_join(prior,orders,by=c("order_id"))
+```
+```{r}
+dim(prior_order)
+dim(train_order)
+dim(test_order)
+```
+
+
