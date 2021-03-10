@@ -33,21 +33,20 @@ train<-read.csv("order_products__train.csv")
 ```
 ```{r}
 
-
+#testing
 
 head(orders)
 #dim(orders)
-
 orders %>% 
   filter(order_id==2)
-
 
 orders %>% 
   filter(user_id==202279)
 ```
 ```{r}
-head(prior)
 
+#testing
+head(prior)
 prior %>% 
   filter(order_id==2)
 
@@ -63,6 +62,8 @@ prior_order<-orders %>%
 ```
 
 ```{r}
+
+#testing
 prior_order%>% 
   filter(order_id==2)
 
@@ -76,7 +77,7 @@ prior_order %>%
 
 train_order<-orders %>% 
   filter(eval_set=="train") %>% 
-    left_join(prior,orders,by=c("order_id"))
+    left_join(train,orders,by=c("order_id"))
 
 
 ```
@@ -88,7 +89,7 @@ train_order<-orders %>%
 
 test_order<-orders %>% 
   filter(eval_set=="test") %>% 
-    left_join(prior,orders,by=c("order_id"))
+    left_join(test,orders,by=c("order_id"))
 ```
 ```{r}
 dim(prior_order)
@@ -96,4 +97,81 @@ dim(train_order)
 dim(test_order)
 ```
 
+
+```{r}
+## Total users 
+
+user_count<-unique(orders$user_id)
+length(user_count)
+
+```
+
+
+```{r}
+#total products
+product_count<-unique(products$product_id)
+length(product_count)
+
+```
+
+
+```{r}
+#total products in prior
+product_prior_count<-unique(prior_order$product_id)
+length(product_prior_count)
+
+```
+
+```{r}
+#total products in train
+
+product_train_count<-unique(train_order$product_id)
+length(product_train_count)
+```
+
+```{r}
+#top 50 products
+
+top_products<-train_order %>% 
+ group_by(product_id) %>% 
+ summarise(tot=n()) %>% 
+ top_n(50) %>% 
+arrange(desc(tot))
+
+top_products
+
+```
+
+
+```{r}
+
+#top 50 users for top 50 products
+
+top_users<-train_order %>%
+  filter(product_id %in% top_products$product_id ) %>% 
+ group_by(user_id) %>% 
+ summarise(tot=n()) %>% 
+ arrange(desc(tot)) %>% 
+ top_n(50)
+top_users
+
+```
+
+```{r}
+
+#transaction for top 50 products (train)
+
+train_order %>% 
+filter(user_id %in%top_users$user_id  & product_id %in% top_products$product_id)
+```
+
+
+```{r}
+
+#transaction for top 50 products (prior)
+
+prior_order %>% 
+filter(user_id %in%top_users$user_id  & product_id %in% top_products$product_id)
+
+```
 
