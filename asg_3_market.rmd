@@ -1,10 +1,11 @@
 ---
 title: "ML1000 Assignment 3"
-author: "Queenie Tsang"
+author: "Queenie"
 date: "09/03/2021"
 output:
   pdf_document: default
   html_document: default
+  always_allow_html: true
 ---
 
 Instacart Market Basket Analysis dataset obtained from https://www.kaggle.com/c/instacart-market-basket-analysis/data (https://www.kaggle.com/c/instacart-market-basket-analysis/data)
@@ -19,18 +20,7 @@ library(arulesViz)
 library(tidyverse)
 library(ggplot2)
 library(lubridate)  #work with date and time data
-
-```
-
-
-```{r}
-# aisles <- read.csv("aisles.csv")
-# department <- read.csv("departments.csv")
-# orders <- read.csv("orders.csv")
-# order_products_prior <- read.csv("order_products__prior.csv")
-# order_products_train <- read.csv("order_products__train.csv")
-# products <- read.csv("products.csv")
-# sample_submission <- read.csv("sample_submission.csv")
+library(RColorBrewer)
 
 ```
 
@@ -151,7 +141,7 @@ transactionData <- ddply(X, c("order_id","user_id"),
 
 Look at the transaction data. This is currently in the form of a basket format:
 ```{r, warning= FALSE, echo=FALSE, message=FALSE}
-transactionData
+#transactionData
 ```
 
 
@@ -167,7 +157,7 @@ colnames(transactionData) <- c("items")
 
 write the transaction data csv into a csv file:
 ```{r}
-write.csv(transactionData,"C:/Users/qt09n/Desktop/Project/market_basket_transactions.csv", quote = FALSE, row.names = FALSE)
+#write.csv(transactionData,"C:/Users/qt09n/Desktop/Project/market_basket_transactions.csv", quote = FALSE, row.names = FALSE)
 ```
 
 take the transaction data file which is in basket format and convert it to an object of the transaction class
@@ -187,8 +177,175 @@ To calculate how many items were purchased: 131210 x 50153 x 0.00020449 = 134566
 
 A sparse matrix is a matrix in which most elements are zero.
 
+Element (itemset/transaction) length distribution. This section is about how many transactions containing a certain number of items. The first row is the number of items in a transaction, and the second row is the number of transactions with that number of items. ie. There are 1877502617 transactions with only 1 item. There are 1980472390 transactions with 2 items. 
+
+
+To generate an item Frequency Plot to view the distribution of objects basedon itemMatrix. 
+
+Create an item frequency plot for the top 50 items.
+```{r}
+itemFrequencyPlot(tr, topN=20, type="absolute", col=brewer.pal(8, 'Pastel2'), main="Absolute Item Frequency Plot")
+```
+According to the frequency plot, the top 20 products bought in Instacart are banana, bag of organic bananas, organic strawberries, organic baby spinach, large lemon, organic avocado, organic hass avocado, strawberries, limes, organic raspberries, organic blueberries, organic whole milk, organic zucchini, organic cucumber, organic yellow onion, organic garlic, seedless red grapes, organic red onion, asparagus and organic grape tomatoes.
+
+This plot shows absolute frequency which are independent numeric frequencies for each item. 
+
+To look at relative frequencies (how many times an item appears in comparison to others):
+```{r}
+itemFrequencyPlot(tr, topN=20, type="relative", col=brewer.pal(8, 'Pastel2'), main="Relative Item Frequency Plot")
+
+
+```
+### Generating Rules
+
+Mine the rules using APRIORI algorithm. 
+
+```{r}
+association.rules <- apriori(tr, parameter= list(supp=0.001, conf=0.8, maxlen=10))
+```
+The apriori will take tr as the transaction object to apply the rule mining. Parameters allow you to set min_sup and min_confidence and min confidence of 0.8, maximum of 10 items(maxlen).
+
+
+```{r}
+summary(association.rules)
+
+```
+set of 255 rules were generated from the apriori algorithm. 
+
+to look at just the top 10 rules:
+```{r}
+inspect(association.rules[1:10])
+
+```
+
+136 transactions where customers who bought Mini and Mobile also bough Natural Artesian Water. 136 transactions where people who bought 1000 sheet Rolls also bought 1a Ply, and 136 transactions where people who bought 1000 Sheet Rolls also bought Bathroom tissue. 
+
+
+### Limiting the number and size of rules
+
+Setting the the conf value and maxlen parameter to higher values will give stronger rules. 
+```{r}
+shorter_association_rules <- apriori(tr, parameter = list(supp=0.001, conf=0.9, maxlen=5))
+
+```
+```{r}
+
+summary(shorter_association_rules)
+```
+```{r}
+inspect(shorter_association_rules[1:10])
+
+```
+
+To remove redundant rules
+```{r}
+subset.rules <- which(colSums(is.subset(association.rules, association.rules))>1)  #get subset rules in vector
+length(subset.rules)
+#which() - gives you the position of elements in the vector where value = TRUE
+#colSums() - row and column sums for dataframes and numeric arrays
+#is.subset() - find out if elements of one vector contain all elements of other vector
+```
+To remove the subset rules:
+```{r}
+subset.association.rules <- association.rules[-subset.rules] #remove subset rules
+
+```
+
+To find out what customers buy before buying a certain product, use the appearance option in the apriori command. ie. to find out what people buy before buying French baguettes:
+```{r}
+baguette.association.rules <- apriori(tr, parameter = list(supp=0.001, conf=0.8), appearance = list(default="lhs", rhs="French Baguettes"))
+```
+To find out how many customers buy French baguettes along with other items:
+```{r}
+inspect(head(baguette.association.rules))
+
+```
+
+To find out answer to "What other items did customers who bought X item also buy?" ...ie. for French baguettes again:
+```{r}
+baguette.association.rules <- apriori(tr, parameter = list(supp=0.001, conf=0.8), appearance = list(lhs="French Baguettes", default="rhs"))
+```
+Keep lhs as French Baguettes because you want to find out the probability of how many customers buy French baguettes with other items:
+```{r}
+inspect(head(baguette.association.rules))
+```
+
+Scatterplot
+```{r}
+#filter rules with confidence greater than 0.6 or 60%
+subRules <- association.rules[quality(association.rules)$confidence>0.6]
+
+#plot subrules
+plot(subRules)
+```
+
+Rules with high lift have low support
+
+Plot options:
+rulesObject = rules object to be plotted
+measure= measures for rule interestingness ie. support, confidence, lift or combination of these depending on method value
+shading = measure used to color points( support, confidence, lift); default=lift
+metho=visualization method to be used(scatterplot, 2 key plot, matrix3D)
+```{r}
+plot(subRules, method="two-key plot")
+```
+
+Two key plot has support on x axis and confidence on y-axis. It uses order for coloring. Order is the number of items in the rule.
+
+
+### Interactive Scatterplot 
+
+Users can hover over rules and see the quality measures(support, confidence and lift).
+```{r}
+plot(subRules)
+```
+
+Graph based methods: 
+vertices are labeled with item names; item sets or rules are indicated with a second set of vertices:
+arrows point from items to rule vertices = LHS; arrow from rule to an item = RHS. Size & color = interest measure.
+
+To get the top 10 rules with highest confidence:
+```{r}
+top10subRules <- head(subRules, n= 10, by="confidence")
+```
+
+Make interactive plot with engine=htmlwidget parameter in plot
+```{r}
+# plot(top10subRules, method="graph", engine="htmlwidget")   #html widget can not be shown in pdf
+plot(top10subRules, method="graph")
+```
+To export graphs for sets of association rules in GraphML format (which you can open with Gephi tool):
+```{r}
+saveAsGraph(head(subRules, n=1000, by="lift"), file="rules.graphml")
+```
+
+
+### Individual Rule Representation
+
+This is Parallel Coordinates Plot, used to visualize products with items and types of sales:
+RHS = consequent, which is item that is suggested for customers to buy:
+positions are LHS, where 2 = most recent item; and 1=item previously bought
+```{r}
+#filter top 20 rules with highest lift:
+subRules2 <-head(subRules, n=20, by="lift")
+plot(subRules2, method="paracoord")
+
+```
+According to this plot, if when someone buys salsa, and "hot".., they are likely to buy Roja. 
+
+If someone has mango, and pear baby food in their cart, they are likely to buy Happy Baby Spinach as well.
+
+
+
 
 
 ## References
 
 https://www.datacamp.com/community/tutorials/market-basket-analysis-r#code
+
+
+https://datascienceplus.com/a-gentle-introduction-on-market-basket-analysis%E2%80%8A-%E2%80%8Aassociation-rules/
+
+https://en.wikipedia.org/wiki/Sparse_matrix
+
+https://cran.r-project.org/web/packages/arulesViz/vignettes/arulesViz.pdf
