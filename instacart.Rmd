@@ -16,6 +16,12 @@ The main goal of recommender systems is to provide suggestions to online users t
 ```{r}
 library(dplyr)
 library(ggplot2)
+library(tidyverse)
+library(data.table)
+library(tibble)
+library(rsparse)
+library(Matrix)
+library(Metrics)
 ```
 
 
@@ -28,6 +34,7 @@ departments<-read.csv("departments.csv")
 prior<-read.csv("order_products__prior.csv")
 train<-read.csv("order_products__train.csv")
 test<-read.csv("sample_submission.csv")
+
 
 
 ```
@@ -56,10 +63,37 @@ prior %>%
 
 prior_order<-orders %>% 
   filter(eval_set=="prior") %>% 
-    left_join(prior,orders,by=c("order_id"))
-
+    left_join(prior,orders,by=c("order_id")) %>% 
+  filter(reordered==1)
+rm(orders,prior)
 
 ```
+
+```{r inlcude=FALSE}
+
+#testing
+prior_order %>% 
+  filter(user_id==107749) %>% 
+  distinct(product_id)
+
+
+products %>% 
+  filter(product_id %in% c(43828,30833,28661,24507,21606,20032) )
+
+products %>% 
+  filter(product_id %in% c(8021	,			
+27521		,		
+34864	,			
+5383	,			
+49145	,			
+3563	,			
+16278	,			
+8277	,			
+42843	,		
+19660) )
+
+```
+
 
 ```{r include=FALSE}
 
@@ -90,6 +124,8 @@ train_order<-orders %>%
 test_order<-orders %>% 
   filter(eval_set=="test") %>% 
     left_join(test,orders,by=c("order_id"))
+
+
 ```
 ```{r}
 dim(prior_order)
@@ -212,10 +248,10 @@ prior_users<-prior_order %>%
 
 ```{r include=FALSE}
 #testing
-z<-prior_order %>% 
-  filter(product_id %in% top_products_prior$product_id & user_id==201142) %>% 
-  distinct(product_id,.keep_all = TRUE)
-z
+# z<-prior_order %>% 
+#   filter(product_id %in% top_products_prior$product_id & user_id==201142) %>% 
+#   distinct(product_id,.keep_all = TRUE)
+# z
 
 
 
@@ -227,8 +263,8 @@ z
 
 #transaction for top 50 products (train)
 
-train_order %>% 
-filter(user_id %in%train_users$user_id  & product_id %in% top_products_train$product_id)
+# train_order %>% 
+# filter(user_id %in%train_users$user_id  & product_id %in% top_products_train$product_id)
 ```
 
 
@@ -236,8 +272,8 @@ filter(user_id %in%train_users$user_id  & product_id %in% top_products_train$pro
 
 #transaction for top 50 products (prior)
 
-prior_order %>% 
-filter(user_id %in%prior_users$user_id  & product_id %in% top_products_prior$product_id)
+# prior_order %>% 
+# filter(user_id %in%prior_users$user_id  & product_id %in% top_products_prior$product_id)
 
 ```
 
@@ -260,10 +296,10 @@ filter(user_id %in%prior_users$user_id  & product_id %in% top_products_prior$pro
 ```{r include=FALSE}
 #test
 
-x<-prior_order %>% 
-  filter(product_id==24852) %>% 
-  distinct(user_id,.keep_all = TRUE)
-x
+# x<-prior_order %>% 
+#   filter(product_id==24852) %>% 
+#   distinct(user_id,.keep_all = TRUE)
+# x
 ```
 
 
@@ -289,7 +325,7 @@ ggplot(p1, aes(count_order)) + geom_histogram(binwidth = 10)+labs(title="Number 
 #combine prior and train
 
 all<-rbind(train_order,prior_order)
-head(all,100)
+#head(all,100)
 ```
 
 ```{r}
@@ -337,63 +373,190 @@ ggplot(p3, aes(count_user)) + geom_histogram(binwidth = 50)+labs(title="Number o
  
 ```
 
-```{r}
+```{r include=FALSE}
 
 
 #Number of Orders by User/Product
 
 
-p4<-prior_order %>% 
-  group_by(user_id,product_id,order_id) %>% 
-  ungroup() %>% 
-  group_by(user_id,product_id) %>% 
-  summarise(count_order=n()) %>%
-  ungroup()%>% group_by(count_order) %>% 
-summarise(count_user_product=n()) %>% 
-  top_n(count_user_product)
-
-
-
-p4
-
-ggplot(p4, aes(count_order)) + geom_bar()+labs(title="Number of Orders by User/Product",
-        x ="Number of Orders", y = "Number of Users/Products")
-
-
+# p4<-prior_order %>% 
+#   group_by(user_id,product_id,order_id) %>% 
+#   ungroup() %>% 
+#   group_by(user_id,product_id) %>% 
+#   summarise(count_order=n()) %>%
+#   ungroup()%>% 
+#   group_by(count_order) %>% 
+# summarise(count_user_product=n()) %>% 
+#   top_n(10)
+# 
+# 
+# 
+# p4$count_order<-as.factor(p4$count_order)
+# 
+# ggplot(p4, aes(count_order)) + geom_histogram(binwidth = 0.001)+labs(title="Number of Orders by User/Product",
+#         x ="Number of Orders", y = "Number of Users/Products")+coord_cartesian(ylim = c(0, 8000000))
+# 
+# 
 
 ```
 ```{r include=FALSE}
 
 
 #testing
-prior_order %>% 
- filter( user_id==1 & product_id==196)
+# prior_order %>% 
+#  filter( user_id==1 & product_id==196)
 ```
 
 ```{r}
-
+rm(orders,products,departments,prior,train,test,test_order,train_order,user_count,product_count,orders_count)
+rm( product_prior_count,product_train_count,top_products_train,train_users,top_products_prior,prior_users,p1,all,p2,p3)
 
 #Extract columns for matrix
 transactions<-prior_order[,c("user_id","product_id","order_id")]
 
+#selecting 8K users for modeling
+all_users<-unique(transactions$user_id)
+randm_users<-sample(all_users,8000L)
 
-#calculate sparsity of the dataframe
-sparsity<-1-sum(transactions==0)/prod(dim(transactions))
-sparsity
+all_products<-unique(transactions$product_id)
+rand_products<-sample(all_products,16000L)
+
+
+interactions<-transactions %>% 
+                     filter(user_id %in%randm_users & product_id %in%rand_products)
+
+
+interactions_sample<-interactions %>% 
+  group_by(user_id,product_id) %>% 
+  summarise(orders=n())
+
+
+
+
+  
+
+  
+
+
+
+
+rm(transactions,interactions,all_users,prior_order,randm_users)
+
+
+
 ```
+
+
+```{r }
+
+
+#encoding users and products
+user_enc <-  interactions_sample %>%
+  distinct(user_id) %>%
+ rowid_to_column()
+
+names(user_enc)[names(user_enc) == "rowid"]<- "uid_enc"
+  
+product_enc<- interactions_sample %>%
+  distinct(product_id)  %>%
+ rowid_to_column()
+
+names(product_enc)[names(product_enc) == "rowid"]<- "pid_enc"
+
+```
+
+
 ```{r}
-#Sample dataset for Processing (top 50 products)
 
-transactions_sample<-transactions %>% 
-                     filter(product_id %in%top_products_prior$product_id)
+
+#sparse matrix
+data<-interactions_sample %>%
+  inner_join(user_enc, by = 'user_id') %>% 
+  inner_join(product_enc, by = 'product_id')
+
+
+rm(interactions_sample)
+
+X = sparseMatrix(i = data$uid_enc, j = data$pid_enc, x = data$orders, 
+                 dimnames = list(user_enc$user_id, product_enc$product_id))
+
+rm(data)
+
 
 ```
 
 
 ```{r}
-dim(transactions_sample)
-sparsity<-1-sum(transactions_sample==0)/prod(dim(transactions))
-sparsity
+
+#test set
+
+n_test <- 2000L
+test_uid <- sample(nrow(user_enc), n_test)
+
+X_train <-  X[-test_uid, ]
+X_test <-  X[test_uid, ]
+
+```
+
+
+
+```{r}
+# Split our test set into "history" or "future"
+temp = as(X_test, "TsparseMatrix")
+temp = data.table(i = temp@i, j = temp@j, x = temp@x) 
+
+
+
+temp <- temp %>%
+  group_by(i) %>%                         # group by user
+  mutate(ct = length(j),                  # number of products each user has
+         history = 
+           sample(c(TRUE, FALSE), ct, replace = TRUE, prob = c(.5, .5))) %>%
+  select(-ct)
+
+
+X_test_history <- temp %>% filter(history == TRUE)
+X_test_future <- temp %>% filter(history == FALSE)
+
+
+
+#rm(temp)
+X_test_history <- sparseMatrix(i = X_test_history$i,
+                               j = X_test_history$j,
+                               x = X_test_history$x,
+                               dims = dim(X_test),
+                               dimnames = dimnames(X_test),
+                               index1 = FALSE)
+
+
+
+X_test_future <- sparseMatrix(i = X_test_future$i,
+                              j = X_test_future$j,
+                              x = X_test_future$x,
+                              dims = dim(X_test),
+                              dimnames = dimnames(X_test),
+                              index1 = FALSE)
+
+
+rm(user_enc, product_enc, n_test, test_uid)
+
+```
+
+
+
+
+
+```{r}
+#  confidence functions and create matrices
+
+lin_conf <- function(x, alpha) {
+  x_confidence <- x
+  stopifnot(inherits(x, "sparseMatrix"))
+  x_confidence@x = 1 + alpha * x@x
+  return(x_confidence)
+}
+
+
 
 ```
 
@@ -401,7 +564,63 @@ sparsity
 
 ```{r}
 
+
+alpha <- 1
+lambda <- 10
+components <- 10L
+
+#factor mtrices for train and test
+
+X_train_conf <- lin_conf(X_train, alpha)
+X_test_history_conf <- lin_conf(X_test_history, alpha)
 ```
+
+
+```{r}
+# Initialize a model
+# Define hyper parameters
+#rank=the number of latent factors in the model (defaults to 10)
+#value of alpha is calculated using cross validation
+
+
+
+
+
+model <- WRMF$new(rank = components,
+                  lambda = lambda,
+                  feedback = 'implicit',
+                  solver = 'conjugate_gradient')
+
+
+
+# model$add_scorers(x_train = X_test_history_conf, x_cv = X_test_future,
+#                   specs=list("map10" = "map@10", "ndcg-10" = "ndcg@10"))
+```
+
+
+
+```{r}
+
+
+# Calculate user factors
+train_user_factors <- model$fit_transform(X_train_conf)
+
+# Products matrix and recommendations are  made by selecting the top 10  items for which P(ui) is greatest for an user.
+
+test_predictions <- model$predict(X_test_history, k = 10)
+
+
+#Loss and Score or fixed product factors
+trace = attr(train_user_factors, "trace")
+ggplot(trace) +
+  geom_line(aes(x = iter, y = value, col = scorer)) +
+  labs(title = "Loss and Scoring Metrics by iteration") +
+  theme(plot.title = element_text(hjust = .5))
+
+
+```
+
+
 
 
 
