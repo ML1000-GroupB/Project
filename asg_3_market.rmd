@@ -1,6 +1,6 @@
 ---
 title: "ML1000 Assignment 3"
-author: "Queenie"
+author: "Anupama r.k, Queenie Tsang, Crystal (Yunan) Zhu"
 date: "09/03/2021"
 output:
   pdf_document: default
@@ -21,6 +21,10 @@ library(tidyverse)
 library(ggplot2)
 library(lubridate)  #work with date and time data
 library(RColorBrewer)
+library(magrittr)
+library(knitr)
+library(recommenderlab)
+library(data.table)
 
 ```
 
@@ -38,6 +42,13 @@ to get only complete rows with X[,]
 X <- X[complete.cases(X),]
 
 ```
+
+```{r}
+sum(is.na(X))
+
+```
+No missing values in dataset.
+
 look at first 10 rows of dataset
 ```{r}
 head(X)
@@ -124,6 +135,52 @@ People most commonly order again after 30 days (1 month), or 7 days (1 week).
 geom_bar(mapping= aes(x=reordered))
 
 ```
+
+Find the percentage of transactions from the top 10 products sold.
+```{r}
+X %>% 
+  group_by(product_name) %>%
+  dplyr::summarize(count =n()) %>%
+  mutate(pct=(count/sum(count))*100) %>%
+  arrange(desc(pct)) %>%
+  ungroup() %>%
+  top_n(10, wt=pct)
+
+```
+Top 10 products sold and the percentage of transactions they are involved in. Bananas make up 1.35% of the transactions, while organic bananas make up 1.1% of the transactions and organic strawberries make up 0.79% of the transactions. 
+
+
+How many items are in each transaction?
+
+```{r}
+X %>%
+  group_by(order_id) %>%
+  dplyr::summarise(number_items=last(add_to_cart_order)) %>%
+  ggplot(aes(x=number_items)) +
+  geom_histogram(stat="count", fill="blue") +
+  geom_rug()+
+  coord_cartesian(xlim=c(0,80))
+
+```
+
+
+Items most often reordered:
+
+```{r}
+
+reordered <- X %>%
+  group_by(product_name) %>%
+  dplyr::summarize(proportion_reordered = mean(reordered), n=n()) %>%
+  filter(n>40) %>%
+  top_n(10, wt=proportion_reordered) %>%
+  arrange(desc(proportion_reordered)) 
+
+kable(reordered)
+```
+
+
+
+
 X_merge column is not needed for association rule mining, so can set to NULL:
 ```{r}
 X$X_merge <- NULL
@@ -339,7 +396,199 @@ If someone has mango, and pear baby food in their cart, they are likely to buy H
 
 
 
+
+## Recommender System in R
+
+Using Recommederlab in R: 2 types of rating matrix for modelling is available; we will be using the binary rating matrix type where 0 indicates product is not purchased, while 1 indicates product is purchased. 
+
+Binary rating matrix is useful when no actual user ratings is available, and it also does not require normalisation.
+
+
+
+The rating matrix must be rearranged with orders in rows and products in columns. 
+
+
+```{r include=FALSE}
+
+#top 50 products train
+
+top_products_train <- X %>% 
+ group_by(user_id,product_id) %>% 
+ dplyr::summarise(total=n()) %>% 
+  ungroup() %>% 
+  group_by(product_id) %>% 
+  dplyr::summarise(count1=n()) %>% 
+  ungroup() %>% 
+arrange(desc(count1)) %>% 
+top_n(50)
+
+#top_products_train
+
+```
+
+```{r}
+# train users for top 50  
+
+train_users<- X %>%
+  filter(product_id %in% top_products_train$product_id) %>% 
+ group_by(user_id,product_id, .groups='keep') %>% 
+  dplyr::summarise(tot=n()) %>% 
+  ungroup() %>% 
+  group_by(user_id) %>% 
+  dplyr::summarise(count2=n()) %>% 
+ arrange(desc(count2)) 
+```
+```{r}
+View(train_users)
+```
+
+#transaction for top 50 products (train)
+```{r}
+train_top_50 <- X %>% 
+filter(user_id %in%train_users$user_id  & product_id %in% top_products_train$product_id)
+```
+
+```{r}
+dim(train_top_50)
+```
+
+Check if products are ordered multiple times within the same transaction:
+
+```{r}
+retail <- train_top_50 %>%
+  #create a unique identifier for each product in a transaction using the order id and product name info:
+  mutate(orderID_product = paste(order_id, product_name, sep=' '))
+#225084 entries
+```
+
+```{r}
+#filter out duplicates and drop unique identifier
+retail <- retail[!duplicated(retail$orderID_product), ] %>%
+  select(-orderID_product)
+#still 225084 entries, so customers generally do not buy multiples of a single product within the same transaction
+```
+
+```{r}
+ratings_matrix <- retail %>%
+  select(order_id, product_name) %>%
+  mutate(value=1) %>%                       #add a column of 1s
+  spread(product_name, value, fill=0) %>%   #spread into user-item format
+  select(-order_id) %>%
+  as.matrix() %>%
+  as("binaryRatingMatrix")                  #convert to recommenderlab class binary matrix
+  
+ratings_matrix
+```
+### Evaluation scheme and Model validation
+
+Evaluate the model's effectiveness using recommenderlab's evaluation schemes.
+
+Split the data into a training set and test set with train taking 80% of the data and test taking 20% of the data.
+
+Set method="cross" and k=5 for 5 fold cross-validation. Data will be split into k subsets of equal size, and 80% of data will be used for training and last 20% for evaluation. Models are then estimated recursively 5 times, and a different train/test split is used each time. Results are then averaged to produce a single evaluation set.
+
+
+```{r}
+scheme <- ratings_matrix %>%
+  evaluationScheme(method="cross",
+                   k = 5,
+                   train = 0.8,
+                   given = -1)   #selecting given = -1 means that for the test users 'all but 1" randomly selected item is withheld for evaluation. 
+
+scheme
+```
+
+### Set up a list of algorithms 
+
+Create a list of algorithms from recommenderlab  and specify model parameters.  Consider schmemes which evaluate on the binary rating matrix and include random items algorithm for benchmarking.
+
+```{r}
+algorithms <- list(
+  "association rules" = list(name = "AR",
+                             param = list(supp=0.001, conf=0.01)),
+  "random items"  = list(name = "RANDOM", param=NULL),                #randomly chosen items for comparison
+  "popular items" = list(name = "POPULAR", param = NULL),             #recommender based on item popularity
+  "item-based CF" = list(name = "IBCF", param = list(k=5)),           #recommender based on item-based collaborative filtering
+  "user-based CF" = list(name = "UBCF",                               #recommender based on user-based collabortive filtering
+                        param = list(method = "Cosine", nn= 50))      #user-based CF often runs into memory problems
+  )
+
+```
+
+Pass the scheme and algorithms to the evaluate() function, to evaluate several recommender algorithms using an evaluation scheme. The end product is a evaluation result list. 
+
+elect type= topNList to evaluate a Top N List of product recommendations and specify how many recommendations to calculate with the parameter n = c(1,3,5,10,15,20)
+
+Note: for the UBCF method, it is important to allocate enough memory in RStudio for processing. 
+
+To check the current limit in R session use memory.limit(); 
+and then to increase the size of memory use memory.limit(size=n)
+ie. memory.limit(size=56000)
+
+```{r}
+#run garbage collection to free up memory for analysis:
+gc()
+
+#remove from global environment variables which are not needed for the analysis:
+rm(X, transactionData, train_users, tr, top10subRules, top_products_train, subset.association.rules, subRules2, subRules, shorter_association_rules, df, baguette.association.rules)
+
+
+#change memory limit to 56000 Mb to prevent problems with memory limit ("cannot allocate vector of size 8.0 Gb")
+memory.limit(size=56000)       
+
+results <- recommenderlab::evaluate(scheme, 
+                                    algorithms,
+                                    type= "topNList",
+                                    n = c(1,3,5,10, 15, 20))
+
+```
+```{r}
+results
+```
+
+
+```{r}
+names(results)
+
+#Access individual results by list subsetting using an index or the name specified when calling evaluate().
+results[["item-based CF"]]
+```
+
+### Visualise the Results 
+
+Use plot function from recommenderlab to compare model performance
+
+Arrange confusion matrix for one model in a convenient format:
+
+
+```{r}
+plot(results, annotate=c(1,3), legend="bottomright")
+
+```
+Comparison of ROC curves. For this datset and the given evaluation scheme, popular items and association rules outperform the other methods, in providing a better combination of TPR and FPR amongst the 4 alogorithms evaluated for the top-N list recommendations.
+
+
+
+
+```{r}
+plot(results, "prec/rec", annotate=3, legend="topright")
+
+```
+Comparison of precision vs. recall curves for the 4 recommender algorithms shows that Popular items and association rules performed the best for the given evaluation scheme. 
+
+
+
+
+
+
+
 ## References
+
+https://towardsdatascience.com/market-basket-analysis-with-recommenderlab-5e8bdc0de236
+
+Michael Hahsler (2021). recommenderlab: Lab for Developing and
+Testing Recommender Algorithms. R package version 0.2-7.
+https://github.com/mhahsler/recommenderlab
 
 https://www.datacamp.com/community/tutorials/market-basket-analysis-r#code
 
@@ -349,3 +598,7 @@ https://datascienceplus.com/a-gentle-introduction-on-market-basket-analysis%E2%8
 https://en.wikipedia.org/wiki/Sparse_matrix
 
 https://cran.r-project.org/web/packages/arulesViz/vignettes/arulesViz.pdf
+
+https://github.com/willsmorgan/Recommender-Systems-using-W-ALS/blob/master/W-ALS%20Final.pdf
+
+
