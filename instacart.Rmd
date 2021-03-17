@@ -57,6 +57,8 @@ head(prior)
 prior %>% 
   filter(order_id==2)
 
+head(products)
+
 ```
 ```{r}
 #merge prior & order 
@@ -64,8 +66,11 @@ prior %>%
 prior_order<-orders %>% 
   filter(eval_set=="prior") %>% 
     left_join(prior,orders,by=c("order_id")) %>% 
+    left_join(products,by=c("product_id")) %>% 
   filter(reordered==1)
-rm(orders,prior)
+#rm(orders,prior)
+
+head(prior_order)
 
 ```
 
@@ -418,32 +423,27 @@ transactions<-prior_order[,c("user_id","product_id","order_id")]
 all_users<-unique(transactions$user_id)
 randm_users<-sample(all_users,8000L)
 
+#selecting 16K products
 all_products<-unique(transactions$product_id)
 rand_products<-sample(all_products,16000L)
 
 
+
+#final data for matrix
 interactions<-transactions %>% 
                      filter(user_id %in%randm_users & product_id %in%rand_products)
 
-
+#find the total orders for each user per product
 interactions_sample<-interactions %>% 
   group_by(user_id,product_id) %>% 
   summarise(orders=n())
 
 
-
-
-  
-
-  
-
-
-
-
-rm(transactions,interactions,all_users,prior_order,randm_users)
-
-
-
+# rm(transactions,interactions,all_users,prior_order,randm_users)
+# 
+# 
+# dim(interactions)
+# head(interactions_sample,100)
 ```
 
 
@@ -459,35 +459,62 @@ names(user_enc)[names(user_enc) == "rowid"]<- "uid_enc"
   
 product_enc<- interactions_sample %>%
   distinct(product_id)  %>%
- rowid_to_column()
+ rowid_to_column() 
 
 names(product_enc)[names(product_enc) == "rowid"]<- "pid_enc"
+
+
+
+
+
+
+# length(product_enc$product_id)
+# dim(product_enc)
+# head(product_enc,100)
+# head(user_enc)
+# 
+# product_enc %>% 
+#   filter(pid_enc==1)
 
 ```
 
 
 ```{r}
-
-
 #sparse matrix
 data<-interactions_sample %>%
   inner_join(user_enc, by = 'user_id') %>% 
   inner_join(product_enc, by = 'product_id')
 
 
-rm(interactions_sample)
 
 X = sparseMatrix(i = data$uid_enc, j = data$pid_enc, x = data$orders, 
                  dimnames = list(user_enc$user_id, product_enc$product_id))
 
-rm(data)
 
+
+
+
+
+
+#rm(interactions_sample)
+#rm(data)
+# str(data)
+# dim(data)
+# head(data)
+# dim(X)
+# head(X)
+# class(X)
+# data %>% 
+#   filter(uid_enc==1) %>% 
+#   arrange(pid_enc)
+# data %>% 
+#   filter(pid_enc==1) %>% 
+#   arrange(pid_enc)
 
 ```
 
 
 ```{r}
-
 #test set
 
 n_test <- 2000L
@@ -495,6 +522,11 @@ test_uid <- sample(nrow(user_enc), n_test)
 
 X_train <-  X[-test_uid, ]
 X_test <-  X[test_uid, ]
+
+ 
+# dim(X_train)
+# dim(X_test)
+# class(test_uid)
 
 ```
 
@@ -520,7 +552,7 @@ X_test_future <- temp %>% filter(history == FALSE)
 
 
 
-#rm(temp)
+
 X_test_history <- sparseMatrix(i = X_test_history$i,
                                j = X_test_history$j,
                                x = X_test_history$x,
@@ -537,11 +569,34 @@ X_test_future <- sparseMatrix(i = X_test_future$i,
                               dimnames = dimnames(X_test),
                               index1 = FALSE)
 
-
-rm(user_enc, product_enc, n_test, test_uid)
-
+#rm(temp)
+# rm(user_enc, product_enc, n_test, test_uid)
+# dim(temp)
+# dim(X_test_history)
+# head(X_test_history)
+# dim(X_test_future)
+# head(X_test_future)
+# colnames(X_test_history)
 ```
 
+
+
+
+```{r}
+#testing
+# 
+# products %>%
+#   filter(product_id==16797)
+# 
+# 
+# orders %>% 
+#   filter(user_id==186381)
+# 
+# prior_order %>% 
+#   filter(user_id==199308) %>% 
+#   filter(product_id==21903)
+
+```
 
 
 
@@ -564,8 +619,7 @@ lin_conf <- function(x, alpha) {
 
 ```{r}
 
-
-alpha <- 1
+alpha <- .1
 lambda <- 10
 components <- 10L
 
@@ -573,6 +627,10 @@ components <- 10L
 
 X_train_conf <- lin_conf(X_train, alpha)
 X_test_history_conf <- lin_conf(X_test_history, alpha)
+
+
+
+#dim(X_test_history_conf)
 ```
 
 
@@ -593,8 +651,15 @@ model <- WRMF$new(rank = components,
 
 
 
-# model$add_scorers(x_train = X_test_history_conf, x_cv = X_test_future,
-#                   specs=list("map10" = "map@10", "ndcg-10" = "ndcg@10"))
+
+# #testing
+# head(X_test_history)
+# head(X_test_history_conf)
+# head(X_train_conf)
+# dim(X_train_conf)
+# dim(X_test_history_conf)
+# class(X_test_history_conf)
+# class(X_test_history_conf)
 ```
 
 
@@ -607,7 +672,7 @@ train_user_factors <- model$fit_transform(X_train_conf)
 
 # Products matrix and recommendations are  made by selecting the top 10  items for which P(ui) is greatest for an user.
 
-test_predictions <- model$predict(X_test_history, k = 10)
+test_predictions <- model$predict(X_test_history_conf, k = 10)
 
 
 #Loss and Score or fixed product factors
@@ -621,6 +686,52 @@ ggplot(trace) +
 ```
 
 
+```{r}
+
+mcname<-colnames(X_test_history_conf)
+
+
+
+# m3<-cbind(1,13726,16797,1:72477)
+# colnames(m3)<-c("uid","user_id","product_id","pid")
+# m3<-as.data.frame(m3)
+
+
+
+m3<-cbind(1,88057,mcname,1:73958)
+colnames(m3)<-c("uid","user_id","product_id","pid")
+m3<-as.data.frame(m3)
+m3$orders[m3$product_id==21903]<-1
+
+m3$uid<-as.integer(m3$uid)
+m3$user_id<-as.integer(m3$user_id)
+m3$product_id<-as.integer(m3$product_id)
+m3$pid<-as.integer(m3$pid)
+m3$orders<-as.integer(m3$orders)
+
+
+user_enc<-m3 %>% 
+          distinct(user_id)
+product_enc<-m3 %>% 
+  select(product_id)
+
+
+y= sparseMatrix(i = m3$uid, j =m3$pid, x = m3$orders,
+                dimnames = list(user_enc$user_id, product_enc$product_id))
+
+
+
+
+y_shiny<-lin_conf(y, alpha)
+shiny_predictions <- model$predict(y, k = 10)
+
+
+y_shiny
+
+
+
+
+```
 
 
 
