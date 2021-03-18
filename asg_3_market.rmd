@@ -1,7 +1,7 @@
 ---
-title: "ML1000 Assignment 3"
+title: "ML1000 Assignment 3 - Recommender System using Market Basket Analysis Apriori Algorithm and Weighted Alternating Least Squares with Implicit Feedback"
 author: "Anupama r.k, Queenie Tsang, Crystal (Yunan) Zhu"
-date: "09/03/2021"
+date: "18/03/2021"
 output:
   pdf_document: default
   html_document: default
@@ -19,12 +19,18 @@ The main goal of recommender systems is to provide suggestions to online users t
 
 
 
+## Ethical Machine Learning Framework
+
+
+
+
+
 ## Data Understanding
 
-Instacart Market Basket Analysis dataset obtained from https://www.kaggle.com/c/instacart-market-basket-analysis/data (https://www.kaggle.com/c/instacart-market-basket-analysis/data)
+The "Instacart Online Grocery Shopping Dataset 2017" was obtained from [https://www.kaggle.com/c/instacart-market-basket-analysis/data](https://www.kaggle.com/c/instacart-market-basket-analysis/data) The dataset is anonymized and contains a total of 3 million grocery orders from more than 200,000 Instacart users. For each user, 4 to 100 of their orders is included in the data, including the sequence in which they purchase products for each order. Other information in the dataset include the day of week the transaction occurred, time between orders, product name, product id, grocery aisle information, and whether products were reordered. The dataset was originally collected by Instacart for use as a public dataset available to the machine learning for creating and testing models which predict products likely to be re-ordered by a user, orderd for the first time or added to the cart next in a transaction (Stanley, 2017).
 
-### How do we merge the data files?
 
+### How did we merge the data files?
 
 There are six data files, excluding the sample_submission.csv file, from the Instacart Market Basket Analysis data - aisles.csv, departments.csv, order_products__train.csv, order_products__prior.csv, orders.csv and products.csv.
 
@@ -47,15 +53,16 @@ products.csv - contains product_id, product_name, aisle_id, department_id
 
 2. Combined the Merged dataset 1 with the department data to obtain Merged dataset 2, so we know which aisle and department each product is from.
 
-3. Add Merged dataset 2, which contains product full information, to order_products__train and order_products__prior files, respectively, to obtain Merged dataset 3 (Train) and Merged dataset 4 (Prior), so that we know the product information (e.g. product names, aisles and departments they belong to) of the products in the training and prior orders.
+3. Added Merged dataset 2, which contains product full information, to order_products__train and order_products__prior files, respectively, to obtain Merged dataset 3 (Train) and Merged dataset 4 (Prior), so that we know the product information (e.g. product names, aisles and departments they belong to) of the products in the training and prior orders.
 
 
 
+## Data Preparation
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 library(tidyr)
 library(dplyr)
-library(arules)    #provides the infrastructure for representing, manipulating and analyzing transaction data and patterns (frequent itemsets and  #association rules)
+library(arules)     #for representing, manipulating and analyzing transaction data and patterns (frequent itemsets and association rules)
 library(arulesViz)
 library(tidyverse)
 library(ggplot2)
@@ -65,13 +72,10 @@ library(magrittr)
 library(knitr)
 library(recommenderlab)
 library(data.table)
-
 library(tibble)
 library(rsparse)
-library(Matrix)
+library(Matrix)    #working with large sparse matrices 
 library(Metrics)
-
-
 
 ```
 
@@ -575,6 +579,10 @@ names(product_enc)[names(product_enc) == "rowid"]<- "pid_enc"
 
 ```
 
+Sparse matrices are special data structures that allows for efficient storage of sparse data (such as large matrices with few non-zero elements). Sparse matrices are able to store the same data as a dense matrix using much less memory. 
+
+One way to store data in sparse format is by keeping just the co-ordinates of non-zero elements (cmdline, 2019). Three vectors of the same size are used: i, j, and x. Vectors i, and j specify the coordinates of the non-zero elements, where i is the row index and j is the column 
+index. The vector x stores the actual non-zero values. 
 
 ```{r}
 #sparse matrix
@@ -588,6 +596,12 @@ X = sparseMatrix(i = data$uid_enc, j = data$pid_enc, x = data$orders,
                  dimnames = list(user_enc$user_id, product_enc$product_id))
 ```
 
+To visualize a small portion of the sparse matrix using the image function in R:
+```{r}
+image(X[1:10, 1:10])
+
+```
+The majority of the graph should be white, indicating sparse with no data. 
 
 ```{r}
 #test set
@@ -894,21 +908,30 @@ Comparison of precision vs. recall curves for the 4 recommender algorithms shows
 
 ## References
 
-https://towardsdatascience.com/market-basket-analysis-with-recommenderlab-5e8bdc0de236
 
-Michael Hahsler (2021). recommenderlab: Lab for Developing and
-Testing Recommender Algorithms. R package version 0.2-7.
-https://github.com/mhahsler/recommenderlab
+cmdline. (2019). Introduction to Sparse Matrices in R. Python and R Tips - Learn Data Science with Python and R. 
+  Retrieved from https://cmdlinetips.com/2019/05/introduction-to-sparse-matrices-in-r/
 
-https://www.datacamp.com/community/tutorials/market-basket-analysis-r#code
+Hahsler, M.(2021). recommenderlab: Lab for Developing and Testing Recommender Algorithms.
+  R package version 0.2-7.
+  https://github.com/mhahsler/recommenderlab
 
+Hahsler, M. and Chelluboina, S. (2017). Visualizing Association Rules: Introduction to
+  the R-extension Package arulesViz. Retrieved from
+  https://cran.r-project.org/web/packages/arulesViz/vignettes/arulesViz.pdf
 
-https://datascienceplus.com/a-gentle-introduction-on-market-basket-analysis%E2%80%8A-%E2%80%8Aassociation-rules/
+Jabeen, H. (2018). Market Basket Analysis using R. Retrieved from 
+  https://www.datacamp.com/community/tutorials/market-basket-analysis-r#code
 
-https://en.wikipedia.org/wiki/Sparse_matrix
+Li, S. (2017). Advanced Modeling in R - A Gentle Introduction on Market Basket Analysis 
+  - Association Rules. Retrieved from       
+  https://datascienceplus.com/a-gentle-introduction-on-market-basket-analysis%E2%80%8A-%E2%80%8Aassociation-rules/
 
-https://cran.r-project.org/web/packages/arulesViz/vignettes/arulesViz.pdf
+Morgan, W. (2018). Weighted Alternating Least Squares with Implicit Feedback Data. GitHub.
+  Retrieved from  https://github.com/willsmorgan/Recommender-Systems-using-W-ALS/blob/master/W-ALS%20Final.pdf
 
-https://github.com/willsmorgan/Recommender-Systems-using-W-ALS/blob/master/W-ALS%20Final.pdf
+Stanley, J. (2017). 3 Million Instacart Orders, Open Sourced. Retrieved from 
+  https://tech.instacart.com/3-million-instacart-orders-open-sourced-d40d29ead6f2
 
-
+Usai, D. (2019). Market Basket Analysis with recommnderlab. Retrieved from
+  https://towardsdatascience.com/market-basket-analysis-with-recommenderlab-5e8bdc0de236
