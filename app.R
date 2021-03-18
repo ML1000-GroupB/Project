@@ -325,10 +325,7 @@ observeEvent(input$buynow, {
     
   })
   
-  
-  
-  print(products_select)
-  
+
 })
   
 observeEvent(input$paynow, {
