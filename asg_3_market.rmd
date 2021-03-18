@@ -27,7 +27,7 @@ The main goal of recommender systems is to provide suggestions to online users t
 
 ## Data Understanding
 
-The "Instacart Online Grocery Shopping Dataset 2017" was obtained from [https://www.kaggle.com/c/instacart-market-basket-analysis/data](https://www.kaggle.com/c/instacart-market-basket-analysis/data) The dataset is anonymized and contains a total of 3 million grocery orders from more than 200,000 Instacart users. For each user, 4 to 100 of their orders is included in the data, including the sequence in which they purchase products for each order. Other information in the dataset include the day of week the transaction occurred, time between orders, product name, product id, grocery aisle information, and whether products were reordered. The dataset was originally collected by Instacart for use as a public dataset available to the machine learning for creating and testing models which predict products likely to be re-ordered by a user, orderd for the first time or added to the cart next in a transaction (Stanley, 2017).
+The "Instacart Online Grocery Shopping Dataset 2017" was obtained from [https://www.kaggle.com/c/instacart-market-basket-analysis/data](https://www.kaggle.com/c/instacart-market-basket-analysis/data) The dataset is anonymized and contains a total of 3 million grocery orders from more than 200,000 Instacart users. For each user, 4 to 100 of their orders was included in the data, including the sequence in which customers purchased products for each order. Other information in the dataset include the day of week the transaction occurred, time between orders, product name, product id, grocery aisle information, and whether products were reordered. The dataset was originally collected by Instacart for use as a public dataset for machine learning. The dataset can be used to create and test models to predict which products are likely to be re-ordered by a user, ordered for the first time or added to the cart next in a transaction (Stanley, 2017).
 
 
 ### How did we merge the data files?
@@ -109,6 +109,7 @@ look at first 10 rows of dataset
 head(X)
 ```
 
+To examine some of the statistics of the dataset:
 ```{r}
 summary(X)
 ```
@@ -155,20 +156,13 @@ How many unique orders are in the training dataset?
 length(unique(X$order_id))
 ```
 
-How many users are in the training dataset?
-```{r}
-length(unique(X$user_id))
-```
-So it looks like the number of users are the same as the number of orders...
-
-
 Recode order_hour_of_day to numeric:
 ```{r}
 X$order_hour_of_day <- as.numeric(X$order_hour_of_day)
 ```
 
-Look at when people order:
-```{r}
+What times are orders placed? 
+```{r, fig.cap= "Bar plot of transactions by hour of day."}
 X %>% ggplot(aes(x= order_hour_of_day)) +
   geom_bar(stat="count", fill="green")
 ```
@@ -176,7 +170,7 @@ People mostly order from 8:00 - 17:00 (8AM - 5PM).
 
 
 Number of distinct orders by user:
-```{r}
+```{r, fig.cap= "Bar chart of number of distinct orders by user. Most users (around 65000) have 10 distinct orders. The next biggest group of users (40000) have between 0 -10 distinct orders placed."}
 p1<-X %>% 
   group_by(user_id) %>% 
   dplyr::summarise(count_order=n()) %>% 
@@ -197,13 +191,13 @@ p2 <- X %>%
   dplyr::summarise(count_product=n()) %>%
   ungroup()
 ```
-```{r}
+```{r, fig.cap= "Bar chart of number of distinct products by user for training orders"}
 ggplot(p2, aes(count_product)) + geom_histogram(binwidth = 10)+labs(title="Number of distinct products by user",
         x ="Number of Products", y = "Number of Users")+coord_cartesian(xlim = c(0, 250))
 ```
 
 Number of distinct users/item
-```{r}
+```{r, warning=FALSE, fig.cap= "Bar chart of number of distinct users/item"}
 p3 <- X %>%
   group_by(product_id,user_id) %>% 
   dplyr::summarise(count4=n()) %>% 
@@ -218,7 +212,7 @@ ggplot(p3, aes(count_user)) + geom_histogram(binwidth = 50)+labs(title="Number o
         x ="Number of Users", y = "Number of Products")+coord_cartesian(xlim = c(0, 500))
 ```
 Most frequently bought products
-```{r}
+```{r, warning=FALSE, fig.cap="Bar chart of most frequently bought products (by department) in Instacart training dataset. Produce is the most popular department, followed by dairy and eggs."}
 X %>% ggplot(aes(x= department)) +
   geom_histogram(stat="count", fill="green")+
   coord_flip()
@@ -227,19 +221,19 @@ X %>% ggplot(aes(x= department)) +
 Most orders come from the produce aisle, with snacks and dairy, eggs among the top 3 department aisles. 
 
 'order_dow' is the day of week. Which days are orders more commonly placed on?
-```{r}
+```{r, warning=FALSE, fig.cap= "Bar chart of Instacart orders showing the number of orders by day of the week. It is assumed for order_dow that 0=Sunday, 1=Monday, 2=Wednesday... and so on until 6=Saturday. Sunday, Monday and Saturday appear to be the most common days where people place their orders."}
 X %>% ggplot(aes(x=order_dow))+
       geom_histogram()
-#Sunday, Monday and Saturday appear to be the most common days where people place their orders.
+
 ```
 How many days pass between an order and the next order?
-```{r}
+```{r, fig.cap= "Histogram showing Instacart training data set of the number of days that have elapsed since a prior order and the count of the number of transactions."}
 X %>% ggplot(aes(x=days_since_prior_order))+
       geom_histogram()
 ```
 People most commonly order again after 30 days (1 month), or 7 days (1 week).
 
-```{r}
+```{r, fig.cap="Bar chart of transactions from the Instacart training dataset showing whether the product ordered is the first time a user ordered that product (0) or the product is an item that the user is reordering (1)."}
   ggplot(X) +
 geom_bar(mapping= aes(x=reordered))
 
@@ -247,7 +241,7 @@ geom_bar(mapping= aes(x=reordered))
 
 Find the percentage of transactions from the top 10 products sold.
 ```{r}
-X %>% 
+percentage <- X %>% 
   group_by(product_name) %>%
   dplyr::summarize(count =n()) %>%
   mutate(pct=(count/sum(count))*100) %>%
@@ -255,13 +249,14 @@ X %>%
   ungroup() %>%
   top_n(10, wt=pct)
 
+kable(percentage, caption = "Percentage of Transactions for Top 10 Products, from Instacart Training Orders data")
 ```
 Top 10 products sold and the percentage of transactions they are involved in. Bananas make up 1.35% of the transactions, while organic bananas make up 1.1% of the transactions and organic strawberries make up 0.79% of the transactions. 
 
 
 How many items are in each transaction?
 
-```{r}
+```{r, warning=FALSE, fig.cap="Histogram of number of items in each transaction for the Instacart training orders dataset. The histogram shows a skewed distribution to the right, where most of the transactions contain 0 - 5 items."}
 X %>%
   group_by(order_id) %>%
   dplyr::summarise(number_items=last(add_to_cart_order)) %>%
@@ -276,7 +271,6 @@ X %>%
 Items most often reordered:
 
 ```{r}
-
 reordered <- X %>%
   group_by(product_name) %>%
   dplyr::summarize(proportion_reordered = mean(reordered), n=n()) %>%
@@ -284,10 +278,11 @@ reordered <- X %>%
   top_n(10, wt=proportion_reordered) %>%
   arrange(desc(proportion_reordered)) 
 
-kable(reordered)
+#kable takes reordered dataframe as input and outputs it as a markdown table
+kable(reordered, caption = "Reorederd products from the Instacart orders training data set showing the proportion of reordered transactions that contain the product")      
 ```
 
-
+## Data Cleansing
 
 
 X_merge column is not needed for association rule mining, so can set to NULL:
@@ -296,13 +291,13 @@ X$X_merge <- NULL
 ```
 Need to convert dataframe to transaction data so that all items bought together in one order is in one row. Currently different products from the same order are in their own rows (singles format).
 
-```{r}
+```{r, echo=FALSE, warning=FALSE}
 library(plyr)
 #ddply(dataframe, variables_to_be_used_to_split_data_frame, function_to_be_applied)
 
 transactionData <- ddply(X, c("order_id","user_id"),
-                       function(df1)paste(df1$product_name,     #paste is used to concatenate vectors to       characters
-                       collapse = ","))     #collapse is used to separate the concatenated product names with a comma
+                       function(df1)paste(df1$product_name,     #paste is used to concatenate vectors to characters
+                       collapse = ","))                 #collapse is used to separate the concatenated product names with a comma
 ```
 
 Look at the transaction data. This is currently in the form of a basket format:
@@ -349,7 +344,7 @@ Element (itemset/transaction) length distribution. This section is about how man
 To generate an item Frequency Plot to view the distribution of objects basedon itemMatrix. 
 
 Create an item frequency plot for the top 50 items.
-```{r}
+```{r, fig.cap= "Absolute Item Frequency Plot for top 20 products from Instacart training orders dataset"}
 itemFrequencyPlot(tr, topN=20, type="absolute", col=brewer.pal(8, 'Pastel2'), main="Absolute Item Frequency Plot")
 ```
 According to the frequency plot, the top 20 products bought in Instacart are banana, bag of organic bananas, organic strawberries, organic baby spinach, large lemon, organic avocado, organic hass avocado, strawberries, limes, organic raspberries, organic blueberries, organic whole milk, organic zucchini, organic cucumber, organic yellow onion, organic garlic, seedless red grapes, organic red onion, asparagus and organic grape tomatoes.
@@ -357,12 +352,12 @@ According to the frequency plot, the top 20 products bought in Instacart are ban
 This plot shows absolute frequency which are independent numeric frequencies for each item. 
 
 To look at relative frequencies (how many times an item appears in comparison to others):
-```{r}
+```{r, fig.cap="Relative Item Frequency Plot for top 20 Ordered Products from Instagram training dataset"}
 itemFrequencyPlot(tr, topN=20, type="relative", col=brewer.pal(8, 'Pastel2'), main="Relative Item Frequency Plot")
 
 
 ```
-### Generating Rules
+## Generating Association Rules using APRIORI algorithm
 
 Mine the rules using APRIORI algorithm. 
 
@@ -402,8 +397,10 @@ summary(shorter_association_rules)
 inspect(shorter_association_rules[1:10])
 
 ```
+From the results we can see that customers that buy Mini & Mobile usually also buy Natural Artesian Water, while people who buy Americano often also buy proscuitto.  
 
-To remove redundant rules
+
+To remove redundant rules:
 ```{r}
 subset.rules <- which(colSums(is.subset(association.rules, association.rules))>1)  #get subset rules in vector
 length(subset.rules)
@@ -437,7 +434,7 @@ inspect(head(baguette.association.rules))
 ```
 
 Scatterplot
-```{r}
+```{r, fig.cap= "Scatterplot for association rules filtered for confidence over 60%, produced using Apriori algorithm, with Instacart Orders training data"}
 #filter rules with confidence greater than 0.6 or 60%
 subRules <- association.rules[quality(association.rules)$confidence>0.6]
 
@@ -451,8 +448,8 @@ Plot options:
 rulesObject = rules object to be plotted
 measure= measures for rule interestingness ie. support, confidence, lift or combination of these depending on method value
 shading = measure used to color points( support, confidence, lift); default=lift
-metho=visualization method to be used(scatterplot, 2 key plot, matrix3D)
-```{r}
+method=visualization method to be used(scatterplot, 2 key plot, matrix3D)
+```{r, fig.cap="2 key plot for association rules filtered for confidence greater than 60% using Apriori algorithm, from Instacart training orders dataset"}
 plot(subRules, method="two-key plot")
 ```
 
@@ -462,7 +459,7 @@ Two key plot has support on x axis and confidence on y-axis. It uses order for c
 ### Interactive Scatterplot 
 
 Users can hover over rules and see the quality measures(support, confidence and lift).
-```{r}
+```{r, fig.cap="scatterplot for association rules using apriori algorithm, from Instacart orders training dataset."}
 plot(subRules)
 ```
 
@@ -476,7 +473,7 @@ top10subRules <- head(subRules, n= 10, by="confidence")
 ```
 
 Make interactive plot with engine=htmlwidget parameter in plot
-```{r}
+```{r, fig.cap="Top 10 association rules in graphical form"}
 # plot(top10subRules, method="graph", engine="htmlwidget")   #html widget can not be shown in pdf
 plot(top10subRules, method="graph")
 ```
@@ -491,7 +488,7 @@ saveAsGraph(head(subRules, n=1000, by="lift"), file="rules.graphml")
 This is Parallel Coordinates Plot, used to visualize products with items and types of sales:
 RHS = consequent, which is item that is suggested for customers to buy:
 positions are LHS, where 2 = most recent item; and 1=item previously bought
-```{r}
+```{r, fig.cap="Parallel coordinates plot for 20 association rules. RHS is the item suggested for customers, based on the items already in the cart at 1, and 2."}
 #filter top 20 rules with highest lift:
 subRules2 <-head(subRules, n=20, by="lift")
 plot(subRules2, method="paracoord")
@@ -515,6 +512,7 @@ train<-read.csv("order_products__train.csv")
 test<-read.csv("sample_submission.csv")
 ```
 
+ 
 ```{r, message=FALSE, echo=FALSE, warning=FALSE, include=FALSE}
 #merge prior & order 
 
@@ -528,6 +526,8 @@ prior_order<-orders %>%
 head(prior_order)
 
 ```
+
+## Data Cleaning 
 
 ```{r}
 #Extract columns for matrix 
@@ -560,11 +560,8 @@ interactions_sample<-interactions %>%
 dim(interactions)
 ```
 
-
+### Encoding Users and Products
 ```{r }
-
-
-#encoding users and products
 user_enc <-  interactions_sample %>%
   distinct(user_id) %>%
  rowid_to_column()
@@ -720,11 +717,9 @@ ggplot(trace) +
 
 ## Recommenderlab for Evaluation of Different Recommender Algorithms in R
 
-Using Recommederlab in R: 2 types of rating matrix for modelling is available; we will be using the binary rating matrix type where 0 indicates product is not purchased, while 1 indicates product is purchased. 
+Using Recommederlab in R we can compare common algorithms typically used to create recommendery systems. In Recommenderlab, 2 types of rating matrix for modelling is available; we will be using the binary rating matrix type where 0 indicates product is not purchased, while 1 indicates product is purchased. 
 
 Binary rating matrix is useful when no actual user ratings is available, and it also does not require normalisation.
-
-
 
 The rating matrix must be rearranged with orders in rows and products in columns. 
 
@@ -899,9 +894,6 @@ plot(results, "prec/rec", annotate=3, legend="topright")
 
 ```
 Comparison of precision vs. recall curves for the 4 recommender algorithms shows that Popular items and association rules performed the best for the given evaluation scheme. 
-
-
-
 
 
 
