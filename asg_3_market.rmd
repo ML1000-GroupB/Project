@@ -1,21 +1,68 @@
 ---
-title: "ML1000 Assignment 3"
+title: "ML1000 Assignment 3 - Recommender System using Market Basket Analysis Apriori Algorithm and Weighted Alternating Least Squares with Implicit Feedback"
 author: "Anupama r.k, Queenie Tsang, Crystal (Yunan) Zhu"
-date: "09/03/2021"
+date: "18/03/2021"
 output:
   pdf_document: default
   html_document: default
   always_allow_html: true
 ---
 
-Instacart Market Basket Analysis dataset obtained from https://www.kaggle.com/c/instacart-market-basket-analysis/data (https://www.kaggle.com/c/instacart-market-basket-analysis/data)
 
-The goal of the competition is to predict which products will be in a user's next order. 
+
+
+## Abstract
+
+The main goal of recommender systems is to provide suggestions to online users to make better decisions from many alternatives available over the Web. A better recommender system is directed more towards personalized recommendations by taking into consideration information about a product, such as specifications, users' purchase history, comparison with other products, and so on, before making recommendations.
+
+## Business Case
+
+
+
+## Ethical Machine Learning Framework
+
+
+
+
+
+## Data Understanding
+
+The "Instacart Online Grocery Shopping Dataset 2017" was obtained from [https://www.kaggle.com/c/instacart-market-basket-analysis/data](https://www.kaggle.com/c/instacart-market-basket-analysis/data) The dataset is anonymized and contains a total of 3 million grocery orders from more than 200,000 Instacart users. For each user, 4 to 100 of their orders is included in the data, including the sequence in which they purchase products for each order. Other information in the dataset include the day of week the transaction occurred, time between orders, product name, product id, grocery aisle information, and whether products were reordered. The dataset was originally collected by Instacart for use as a public dataset available to the machine learning for creating and testing models which predict products likely to be re-ordered by a user, orderd for the first time or added to the cart next in a transaction (Stanley, 2017).
+
+
+### How did we merge the data files?
+
+There are six data files, excluding the sample_submission.csv file, from the Instacart Market Basket Analysis data - aisles.csv, departments.csv, order_products__train.csv, order_products__prior.csv, orders.csv and products.csv.
+
+### Data file descriptions
+
+aisles.csv - contains aisle id and aisle description columns
+
+departments.csv - contains department id and department description columns
+
+order_products__*.csv - These files specify which products were purchased in each order. order_products__prior.csv contains previous order contents for all customers. 'reordered' indicates that the customer has a previous order that contains the product. order_products_train.csv contains order information for transactions which will be used for training the model.
+
+orders.csv - This file tells to which set (prior, train, test) an order belongs. You are predicting reordered items only for the test set orders. 'order_dow' is the day of week.
+
+products.csv - contains product_id, product_name, aisle_id, department_id
+
+
+### Steps to merge the data files:
+
+1. Merged the aisles data with the products data to obtain Merged dataset 1, so that we know which aisle each product belongs to.
+
+2. Combined the Merged dataset 1 with the department data to obtain Merged dataset 2, so we know which aisle and department each product is from.
+
+3. Added Merged dataset 2, which contains product full information, to order_products__train and order_products__prior files, respectively, to obtain Merged dataset 3 (Train) and Merged dataset 4 (Prior), so that we know the product information (e.g. product names, aisles and departments they belong to) of the products in the training and prior orders.
+
+
+
+## Data Preparation
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 library(tidyr)
 library(dplyr)
-library(arules)    #provides the infrastructure for representing, manipulating and analyzing transaction data and patterns (frequent itemsets and  #association rules)
+library(arules)     #for representing, manipulating and analyzing transaction data and patterns (frequent itemsets and association rules)
 library(arulesViz)
 library(tidyverse)
 library(ggplot2)
@@ -25,6 +72,10 @@ library(magrittr)
 library(knitr)
 library(recommenderlab)
 library(data.table)
+library(tibble)
+library(rsparse)
+library(Matrix)    #working with large sparse matrices 
+library(Metrics)
 
 ```
 
@@ -36,6 +87,10 @@ X <- read.csv("C:/Users/qt09n/Desktop/Project/orders_TRAIN_products_MERGED.csv")
 ```{r}
 str(X)
 ```
+```{r}
+dim(X)
+```
+
 Check missing values: complete.cases will return a logical vector indicating which rows have no missing values. Then use the vector
 to get only complete rows with X[,]
 ```{r}
@@ -58,6 +113,11 @@ head(X)
 summary(X)
 ```
 
+Check total users:
+```{r}
+user_count <- unique(X$user_id)
+length(user_count)
+```
 
 Change the character columns to factors and create a new column using mutate:
 ```{r}
@@ -79,6 +139,12 @@ levels(X$department)
 length(unique(X$product_name))
 #39123 products
 ```
+Total products from product id column:
+```{r}
+product_count <- unique(X$product_id)
+length(product_count)
+```
+
 ```{r}
 class(X$order_hour_of_day)
 #[1] "integer"
@@ -108,6 +174,49 @@ X %>% ggplot(aes(x= order_hour_of_day)) +
 ```
 People mostly order from 8:00 - 17:00 (8AM - 5PM).
 
+
+Number of distinct orders by user:
+```{r}
+p1<-X %>% 
+  group_by(user_id) %>% 
+  dplyr::summarise(count_order=n()) %>% 
+  ungroup() 
+
+ggplot(p1, aes(count_order)) + geom_histogram(binwidth = 10)+labs(title="Number of distinct orders by user",
+        x ="Number of Orders", y = "Number of Users")+coord_cartesian(xlim = c(0, 80))
+```
+
+Number of distinct products per user:
+```{r, warnings=FALSE}
+p2 <- X %>%
+  group_by(user_id, product_id) %>%
+  dplyr::summarise(count3=n()) %>%
+  select(user_id, product_id, count3) %>%
+  ungroup() %>%
+  group_by(user_id) %>%
+  dplyr::summarise(count_product=n()) %>%
+  ungroup()
+```
+```{r}
+ggplot(p2, aes(count_product)) + geom_histogram(binwidth = 10)+labs(title="Number of distinct products by user",
+        x ="Number of Products", y = "Number of Users")+coord_cartesian(xlim = c(0, 250))
+```
+
+Number of distinct users/item
+```{r}
+p3 <- X %>%
+  group_by(product_id,user_id) %>% 
+  dplyr::summarise(count4=n()) %>% 
+  select(user_id,product_id,count4) %>% 
+  ungroup() %>%
+  group_by(product_id) %>% 
+  dplyr::summarise(count_user=n()) %>% 
+  ungroup() 
+
+
+ggplot(p3, aes(count_user)) + geom_histogram(binwidth = 50)+labs(title="Number of distinct users/item",
+        x ="Number of Users", y = "Number of Products")+coord_cartesian(xlim = c(0, 500))
+```
 Most frequently bought products
 ```{r}
 X %>% ggplot(aes(x= department)) +
@@ -393,11 +502,223 @@ According to this plot, if when someone buys salsa, and "hot".., they are likely
 If someone has mango, and pear baby food in their cart, they are likely to buy Happy Baby Spinach as well.
 
 
+## Recommender Method 2: Weighted Alternating Least Squares with Implicit Feedback Data
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+#Import data
+
+orders<-read.csv("orders.csv")
+products<-read.csv("products.csv")
+departments<-read.csv("departments.csv")
+prior<-read.csv("order_products__prior.csv")
+train<-read.csv("order_products__train.csv")
+test<-read.csv("sample_submission.csv")
+```
+
+```{r, message=FALSE, echo=FALSE, warning=FALSE, include=FALSE}
+#merge prior & order 
+
+prior_order<-orders %>% 
+  filter(eval_set=="prior") %>% 
+    left_join(prior,orders,by=c("order_id")) %>% 
+    left_join(products,by=c("product_id")) %>% 
+  filter(reordered==1)
+#rm(orders,prior)
+
+head(prior_order)
+
+```
+
+```{r}
+#Extract columns for matrix 
+#transactions<-X[,c("user_id","product_id","order_id")]             #if using training orders data
+transactions<-prior_order[,c("user_id","product_id","order_id")]    #using prior orders data
+
+
+#selecting 8K users for modeling
+all_users<-unique(transactions$user_id)
+randm_users<-sample(all_users,8000L)
+
+#selecting 16K products
+all_products<-unique(transactions$product_id)
+rand_products<-sample(all_products,16000L)
+
+
+
+#final data for matrix
+interactions<-transactions %>% 
+                     filter(user_id %in%randm_users & product_id %in%rand_products)
+
+#find the total orders for each user per product
+interactions_sample<-interactions %>% 
+  group_by(user_id,product_id) %>% 
+  dplyr::summarise(orders=n())
+
+```
+
+```{r}
+dim(interactions)
+```
+
+
+```{r }
+
+
+#encoding users and products
+user_enc <-  interactions_sample %>%
+  distinct(user_id) %>%
+ rowid_to_column()
+
+names(user_enc)[names(user_enc) == "rowid"]<- "uid_enc"
+  
+product_enc<- interactions_sample %>%
+  distinct(product_id)  %>%
+ rowid_to_column() 
+
+names(product_enc)[names(product_enc) == "rowid"]<- "pid_enc"
+
+```
+
+Sparse matrices are special data structures that allows for efficient storage of sparse data (such as large matrices with few non-zero elements). Sparse matrices are able to store the same data as a dense matrix using much less memory. 
+
+One way to store data in sparse format is by keeping just the co-ordinates of non-zero elements (cmdline, 2019). Three vectors of the same size are used: i, j, and x. Vectors i, and j specify the coordinates of the non-zero elements, where i is the row index and j is the column 
+index. The vector x stores the actual non-zero values. 
+
+```{r}
+#sparse matrix
+data<-interactions_sample %>%
+  inner_join(user_enc, by = 'user_id') %>% 
+  inner_join(product_enc, by = 'product_id')
+
+
+
+X = sparseMatrix(i = data$uid_enc, j = data$pid_enc, x = data$orders, 
+                 dimnames = list(user_enc$user_id, product_enc$product_id))
+```
+
+To visualize a small portion of the sparse matrix using the image function in R:
+```{r}
+image(X[1:10, 1:10])
+
+```
+The majority of the graph should be white, indicating sparse with no data. 
+
+```{r}
+#test set
+
+n_test <- 2000L
+test_uid <- sample(nrow(user_enc), n_test)
+
+X_train <-  X[-test_uid, ]
+X_test <-  X[test_uid, ]
+
+```
+
+
+```{r}
+# Split our test set into "history" or "future"
+temp = as(X_test, "TsparseMatrix")
+temp = data.table(i = temp@i, j = temp@j, x = temp@x) 
+
+
+
+temp <- temp %>%
+  group_by(i) %>%                         # group by user
+  mutate(ct = length(j),                  # number of products each user has
+         history = 
+           sample(c(TRUE, FALSE), ct, replace = TRUE, prob = c(.5, .5))) %>%
+  select(-ct)
+
+
+X_test_history <- temp %>% filter(history == TRUE)
+X_test_future <- temp %>% filter(history == FALSE)
 
 
 
 
-## Recommender System in R
+X_test_history <- sparseMatrix(i = X_test_history$i,
+                               j = X_test_history$j,
+                               x = X_test_history$x,
+                               dims = dim(X_test),
+                               dimnames = dimnames(X_test),
+                               index1 = FALSE)
+
+
+
+X_test_future <- sparseMatrix(i = X_test_future$i,
+                              j = X_test_future$j,
+                              x = X_test_future$x,
+                              dims = dim(X_test),
+                              dimnames = dimnames(X_test),
+                              index1 = FALSE)
+
+```
+
+```{r}
+#  confidence functions and create matrices
+
+lin_conf <- function(x, alpha) {
+  x_confidence <- x
+  stopifnot(inherits(x, "sparseMatrix"))
+  x_confidence@x = 1 + alpha * x@x
+  return(x_confidence)
+}
+```
+
+```{r}
+
+alpha <- .1
+lambda <- 10
+components <- 10L
+
+#factor matrices for train and test
+
+X_train_conf <- lin_conf(X_train, alpha)
+X_test_history_conf <- lin_conf(X_test_history, alpha)
+```
+
+```{r}
+# Initialize a model
+# Define hyper parameters
+#rank=the number of latent factors in the model (defaults to 10)
+#value of alpha is calculated using cross validation
+
+
+
+
+
+model <- WRMF$new(rank = components,
+                  lambda = lambda,
+                  feedback = 'implicit',
+                  solver = 'conjugate_gradient')
+
+```
+
+
+```{r}
+
+# Calculate user factors
+train_user_factors <- model$fit_transform(X_train_conf)
+
+# Products matrix and recommendations are  made by selecting the top 10  items for which P(ui) is greatest for an user.
+
+test_predictions <- model$predict(X_test_history_conf, k = 10)
+
+
+#Loss and Score or fixed product factors
+trace = attr(train_user_factors, "trace")
+ggplot(trace) +
+  geom_line(aes(x = iter, y = value, col = scorer)) +
+  labs(title = "Loss and Scoring Metrics by iteration") +
+  theme(plot.title = element_text(hjust = .5))
+
+```
+
+
+
+
+
+## Recommenderlab for Evaluation of Different Recommender Algorithms in R
 
 Using Recommederlab in R: 2 types of rating matrix for modelling is available; we will be using the binary rating matrix type where 0 indicates product is not purchased, while 1 indicates product is purchased. 
 
@@ -407,6 +728,9 @@ Binary rating matrix is useful when no actual user ratings is available, and it 
 
 The rating matrix must be rearranged with orders in rows and products in columns. 
 
+```{r}
+X <- read.csv("C:/Users/qt09n/Desktop/Project/orders_TRAIN_products_MERGED.csv")
+```
 
 ```{r include=FALSE}
 
@@ -488,7 +812,7 @@ Split the data into a training set and test set with train taking 80% of the dat
 Set method="cross" and k=5 for 5 fold cross-validation. Data will be split into k subsets of equal size, and 80% of data will be used for training and last 20% for evaluation. Models are then estimated recursively 5 times, and a different train/test split is used each time. Results are then averaged to produce a single evaluation set.
 
 
-```{r}
+```{r, warning= FALSE}
 scheme <- ratings_matrix %>%
   evaluationScheme(method="cross",
                    k = 5,
@@ -508,9 +832,9 @@ algorithms <- list(
                              param = list(supp=0.001, conf=0.01)),
   "random items"  = list(name = "RANDOM", param=NULL),                #randomly chosen items for comparison
   "popular items" = list(name = "POPULAR", param = NULL),             #recommender based on item popularity
-  "item-based CF" = list(name = "IBCF", param = list(k=5)),           #recommender based on item-based collaborative filtering
-  "user-based CF" = list(name = "UBCF",                               #recommender based on user-based collabortive filtering
-                        param = list(method = "Cosine", nn= 50))      #user-based CF often runs into memory problems
+  "item-based CF" = list(name = "IBCF", param = list(k=5))           #recommender based on item-based collaborative filtering
+  #"user-based CF" = list(name = "UBCF",                               #recommender based on user-based collabortive filtering
+  #                      param = list(method = "Cosine", nn= 50))      #user-based CF often runs into memory problems
   )
 
 ```
@@ -530,7 +854,7 @@ ie. memory.limit(size=56000)
 gc()
 
 #remove from global environment variables which are not needed for the analysis:
-rm(X, transactionData, train_users, tr, top10subRules, top_products_train, subset.association.rules, subRules2, subRules, shorter_association_rules, df, baguette.association.rules)
+# rm(X, transactionData, train_users, tr, top10subRules, top_products_train, subset.association.rules, subRules2, subRules, shorter_association_rules, df, baguette.association.rules)
 
 
 #change memory limit to 56000 Mb to prevent problems with memory limit ("cannot allocate vector of size 8.0 Gb")
@@ -584,21 +908,30 @@ Comparison of precision vs. recall curves for the 4 recommender algorithms shows
 
 ## References
 
-https://towardsdatascience.com/market-basket-analysis-with-recommenderlab-5e8bdc0de236
 
-Michael Hahsler (2021). recommenderlab: Lab for Developing and
-Testing Recommender Algorithms. R package version 0.2-7.
-https://github.com/mhahsler/recommenderlab
+cmdline. (2019). Introduction to Sparse Matrices in R. Python and R Tips - Learn Data Science with Python and R. 
+  Retrieved from https://cmdlinetips.com/2019/05/introduction-to-sparse-matrices-in-r/
 
-https://www.datacamp.com/community/tutorials/market-basket-analysis-r#code
+Hahsler, M.(2021). recommenderlab: Lab for Developing and Testing Recommender Algorithms.
+  R package version 0.2-7.
+  https://github.com/mhahsler/recommenderlab
 
+Hahsler, M. and Chelluboina, S. (2017). Visualizing Association Rules: Introduction to
+  the R-extension Package arulesViz. Retrieved from
+  https://cran.r-project.org/web/packages/arulesViz/vignettes/arulesViz.pdf
 
-https://datascienceplus.com/a-gentle-introduction-on-market-basket-analysis%E2%80%8A-%E2%80%8Aassociation-rules/
+Jabeen, H. (2018). Market Basket Analysis using R. Retrieved from 
+  https://www.datacamp.com/community/tutorials/market-basket-analysis-r#code
 
-https://en.wikipedia.org/wiki/Sparse_matrix
+Li, S. (2017). Advanced Modeling in R - A Gentle Introduction on Market Basket Analysis 
+  - Association Rules. Retrieved from       
+  https://datascienceplus.com/a-gentle-introduction-on-market-basket-analysis%E2%80%8A-%E2%80%8Aassociation-rules/
 
-https://cran.r-project.org/web/packages/arulesViz/vignettes/arulesViz.pdf
+Morgan, W. (2018). Weighted Alternating Least Squares with Implicit Feedback Data. GitHub.
+  Retrieved from  https://github.com/willsmorgan/Recommender-Systems-using-W-ALS/blob/master/W-ALS%20Final.pdf
 
-https://github.com/willsmorgan/Recommender-Systems-using-W-ALS/blob/master/W-ALS%20Final.pdf
+Stanley, J. (2017). 3 Million Instacart Orders, Open Sourced. Retrieved from 
+  https://tech.instacart.com/3-million-instacart-orders-open-sourced-d40d29ead6f2
 
-
+Usai, D. (2019). Market Basket Analysis with recommnderlab. Retrieved from
+  https://towardsdatascience.com/market-basket-analysis-with-recommenderlab-5e8bdc0de236
