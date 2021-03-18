@@ -250,7 +250,7 @@ observeEvent(input$paynow, {
 
   users <- data.frame(user_id = c("13726"))
   prod<-data.frame(product_id =mcname)
-  ord<-data.frame(user_id = c("13726"),product_id=c("196","130","13176"))
+  #ord<-data.frame(user_id = c("13726"),product_id=c("196","130","13176"))
   
   
   
