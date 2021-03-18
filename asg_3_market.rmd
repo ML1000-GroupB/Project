@@ -500,9 +500,36 @@ If someone has mango, and pear baby food in their cart, they are likely to buy H
 
 ## Recommender Method 2: Weighted Alternating Least Squares with Implicit Feedback Data
 
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+#Import data
+
+orders<-read.csv("orders.csv")
+products<-read.csv("products.csv")
+departments<-read.csv("departments.csv")
+prior<-read.csv("order_products__prior.csv")
+train<-read.csv("order_products__train.csv")
+test<-read.csv("sample_submission.csv")
+```
+
+```{r, message=FALSE, echo=FALSE, warning=FALSE, include=FALSE}
+#merge prior & order 
+
+prior_order<-orders %>% 
+  filter(eval_set=="prior") %>% 
+    left_join(prior,orders,by=c("order_id")) %>% 
+    left_join(products,by=c("product_id")) %>% 
+  filter(reordered==1)
+#rm(orders,prior)
+
+head(prior_order)
+
+```
+
 ```{r}
-#Extract columns for matrix
-transactions<-X[,c("user_id","product_id","order_id")]
+#Extract columns for matrix 
+#transactions<-X[,c("user_id","product_id","order_id")]             #if using training orders data
+transactions<-prior_order[,c("user_id","product_id","order_id")]    #using prior orders data
+
 
 #selecting 8K users for modeling
 all_users<-unique(transactions$user_id)
@@ -523,6 +550,10 @@ interactions_sample<-interactions %>%
   group_by(user_id,product_id) %>% 
   dplyr::summarise(orders=n())
 
+```
+
+```{r}
+dim(interactions)
 ```
 
 
