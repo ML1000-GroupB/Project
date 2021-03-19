@@ -15,6 +15,10 @@ output:
 
 The main goal of recommender systems is to provide suggestions to online users to make better decisions from many alternatives available over the Web. A better recommender system is directed more towards personalized recommendations by taking into consideration information about a product, such as specifications, users' purchase history, comparison with other products, and so on, before making recommendations.
 
+We build two main recommender systems using the Instacart Online Grocery Shopping Dataset 2017. The first recommender system uses the APRIORI algorithm to mine for patterns between items which are frequently bought together. The results of the APRIORI method gives association rules between different products, so that if a customer has a certain item in their basket, other frequently bought items will be suggested. 
+
+The second recommender system we built is using Weighted Alternating Least Squares with Implicit Feedback Data (WALSIFD). In the WALSIFD method, if a customer bought an item several times, it is assumed that there is positive feedback in terms of user preference for those items. The objective of this model is to identify products that has a high probability of being clicked on or purchased by a user, based on their previous transactions.
+
 ## Business Case
 
 
@@ -42,7 +46,7 @@ departments.csv - contains department id and department description columns
 
 order_products__*.csv - These files specify which products were purchased in each order. order_products__prior.csv contains previous order contents for all customers. 'reordered' indicates that the customer has a previous order that contains the product. order_products_train.csv contains order information for transactions which will be used for training the model.
 
-orders.csv - This file tells to which set (prior, train, test) an order belongs. You are predicting reordered items only for the test set orders. 'order_dow' is the day of week.
+orders.csv - This file tells to which set (prior, train, test) an order belongs. 
 
 products.csv - contains product_id, product_name, aisle_id, department_id
 
@@ -197,7 +201,7 @@ ggplot(p2, aes(count_product)) + geom_histogram(binwidth = 10)+labs(title="Numbe
 ```
 
 Number of distinct users/item
-```{r, warning=FALSE, fig.cap= "Bar chart of number of distinct users/item"}
+```{r, warning=FALSE}
 p3 <- X %>%
   group_by(product_id,user_id) %>% 
   dplyr::summarise(count4=n()) %>% 
@@ -206,8 +210,8 @@ p3 <- X %>%
   group_by(product_id) %>% 
   dplyr::summarise(count_user=n()) %>% 
   ungroup() 
-
-
+```
+```{r, warning=FALSE, fig.cap= "Bar chart of number of distinct users/item"}
 ggplot(p3, aes(count_user)) + geom_histogram(binwidth = 50)+labs(title="Number of distinct users/item",
         x ="Number of Users", y = "Number of Products")+coord_cartesian(xlim = c(0, 500))
 ```
@@ -221,11 +225,13 @@ X %>% ggplot(aes(x= department)) +
 Most orders come from the produce aisle, with snacks and dairy, eggs among the top 3 department aisles. 
 
 'order_dow' is the day of week. Which days are orders more commonly placed on?
-```{r, warning=FALSE, fig.cap= "Bar chart of Instacart orders showing the number of orders by day of the week. It is assumed for order_dow that 0=Sunday, 1=Monday, 2=Wednesday... and so on until 6=Saturday. Sunday, Monday and Saturday appear to be the most common days where people place their orders."}
+```{r, warning=FALSE, fig.cap= "Bar chart of Instacart orders showing the number of orders by day of the week."}
 X %>% ggplot(aes(x=order_dow))+
       geom_histogram()
-
 ```
+It is assumed for order_dow that 0=Sunday, 1=Monday, 2=Wednesday... and so on until 6=Saturday. Sunday, Monday and Saturday appear to be the most common days where people place their orders.
+ 
+ 
 How many days pass between an order and the next order?
 ```{r, fig.cap= "Histogram showing Instacart training data set of the number of days that have elapsed since a prior order and the count of the number of transactions."}
 X %>% ggplot(aes(x=days_since_prior_order))+
@@ -291,8 +297,10 @@ X$X_merge <- NULL
 ```
 Need to convert dataframe to transaction data so that all items bought together in one order is in one row. Currently different products from the same order are in their own rows (singles format).
 
-```{r, echo=FALSE, warning=FALSE}
+```{r, warning=FALSE, message=FALSE}
 library(plyr)
+library(dplyr)
+
 #ddply(dataframe, variables_to_be_used_to_split_data_frame, function_to_be_applied)
 
 transactionData <- ddply(X, c("order_id","user_id"),
@@ -352,12 +360,12 @@ According to the frequency plot, the top 20 products bought in Instacart are ban
 This plot shows absolute frequency which are independent numeric frequencies for each item. 
 
 To look at relative frequencies (how many times an item appears in comparison to others):
-```{r, fig.cap="Relative Item Frequency Plot for top 20 Ordered Products from Instagram training dataset"}
+```{r, fig.cap="Relative Item Frequency Plot for top 20 Ordered Products from Instacart training dataset"}
 itemFrequencyPlot(tr, topN=20, type="relative", col=brewer.pal(8, 'Pastel2'), main="Relative Item Frequency Plot")
 
 
 ```
-## Generating Association Rules using APRIORI algorithm
+##Generating Association Rules using APRIORI algorithm
 
 Mine the rules using APRIORI algorithm. 
 
@@ -494,7 +502,6 @@ subRules2 <-head(subRules, n=20, by="lift")
 plot(subRules2, method="paracoord")
 
 ```
-According to this plot, if when someone buys salsa, and "hot".., they are likely to buy Roja. 
 
 If someone has mango, and pear baby food in their cart, they are likely to buy Happy Baby Spinach as well.
 
@@ -681,9 +688,6 @@ X_test_history_conf <- lin_conf(X_test_history, alpha)
 #value of alpha is calculated using cross validation
 
 
-
-
-
 model <- WRMF$new(rank = components,
                   lambda = lambda,
                   feedback = 'implicit',
@@ -700,8 +704,9 @@ train_user_factors <- model$fit_transform(X_train_conf)
 # Products matrix and recommendations are  made by selecting the top 10  items for which P(ui) is greatest for an user.
 
 test_predictions <- model$predict(X_test_history_conf, k = 10)
+```
 
-
+```{r, fig.cap="Plot of Loss and Scoring metrics by Iteration" }
 #Loss and Score or fixed product factors
 trace = attr(train_user_factors, "trace")
 ggplot(trace) +
@@ -723,7 +728,7 @@ Binary rating matrix is useful when no actual user ratings is available, and it 
 
 The rating matrix must be rearranged with orders in rows and products in columns. 
 
-```{r}
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
 X <- read.csv("C:/Users/qt09n/Desktop/Project/orders_TRAIN_products_MERGED.csv")
 ```
 
@@ -828,8 +833,7 @@ algorithms <- list(
   "random items"  = list(name = "RANDOM", param=NULL),                #randomly chosen items for comparison
   "popular items" = list(name = "POPULAR", param = NULL),             #recommender based on item popularity
   "item-based CF" = list(name = "IBCF", param = list(k=5))           #recommender based on item-based collaborative filtering
-  #"user-based CF" = list(name = "UBCF",                               #recommender based on user-based collabortive filtering
-  #                      param = list(method = "Cosine", nn= 50))      #user-based CF often runs into memory problems
+ 
   )
 
 ```
@@ -838,7 +842,7 @@ Pass the scheme and algorithms to the evaluate() function, to evaluate several r
 
 elect type= topNList to evaluate a Top N List of product recommendations and specify how many recommendations to calculate with the parameter n = c(1,3,5,10,15,20)
 
-Note: for the UBCF method, it is important to allocate enough memory in RStudio for processing. 
+Note:It is important to allocate enough memory in RStudio for processing. 
 
 To check the current limit in R session use memory.limit(); 
 and then to increase the size of memory use memory.limit(size=n)
@@ -884,7 +888,7 @@ Arrange confusion matrix for one model in a convenient format:
 plot(results, annotate=c(1,3), legend="bottomright")
 
 ```
-Comparison of ROC curves. For this datset and the given evaluation scheme, popular items and association rules outperform the other methods, in providing a better combination of TPR and FPR amongst the 4 alogorithms evaluated for the top-N list recommendations.
+Comparison of ROC curves. For this dataset and the given evaluation scheme, popular items and association rules outperform the other methods, in providing a better combination of TPR and FPR amongst the 4 algorithms evaluated for the top-N list recommendations.
 
 
 
@@ -896,6 +900,12 @@ plot(results, "prec/rec", annotate=3, legend="topright")
 Comparison of precision vs. recall curves for the 4 recommender algorithms shows that Popular items and association rules performed the best for the given evaluation scheme. 
 
 
+## Deployment
+
+
+Instacart can use our recommendation models to recommend products to customers while they do their shopping, through a "Frequently bought with x (item)" suggestions. Additionally, our other model using Weighted Alternating Least Squares with Implicit Feedback model can also make suggestions for grocery products, based on the implicit feedback given when customers previously bought a product to suggest products for future purchases. 
+
+Other data that can be collected include product price, and transaction date. In other recommendation systems, user ratings of products can also be used to recommend new products, using different algorithms such as user-based collaborative filtering. The current model is based on customer transactions buying groceries from Instacart in 2017, and thus recommendations are based on those transactions. The model could  be updated every 2 years or so with new transaction data because in that time, new products may be added, new food trends would also mean customers may make different product choices based on new food trends in the future. For example, plant-based products, breakfast foods, pasta, pickling and fermenting kits, meal kits are predicted to become very popular in 2021 (Hearst Magazine, 2021), and customer purchases may reflect those trends (which may be different from what they typically bought in 2017).
 
 
 ## References
@@ -911,6 +921,8 @@ Hahsler, M.(2021). recommenderlab: Lab for Developing and Testing Recommender Al
 Hahsler, M. and Chelluboina, S. (2017). Visualizing Association Rules: Introduction to
   the R-extension Package arulesViz. Retrieved from
   https://cran.r-project.org/web/packages/arulesViz/vignettes/arulesViz.pdf
+
+Hearst Magazine Media. (2021). The 15 Food Trends You are Going to See Everywhere in 2021. Retrieved from  https://www.delish.com/food/a35036824/food-trends-2021/
 
 Jabeen, H. (2018). Market Basket Analysis using R. Retrieved from 
   https://www.datacamp.com/community/tutorials/market-basket-analysis-r#code
