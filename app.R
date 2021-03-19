@@ -1,9 +1,6 @@
 
 
 
-
-
-
 library(shiny)
 library(DT)
 library(collapse)
@@ -43,101 +40,105 @@ shinyApp(ui <- navbarPage(
                         bsCollapse(id = "collapseExample", open = "Panel 2",
                                    bsCollapsePanel("Produce", selectInput(inputId = "select1",
                                                                           label = "Item1:",
-                                                                          choices = readRDS(url("https://github.com/ML1000-GroupB/Project/blob/main/table6.rds?raw=true"))[,1]),
-                                          #         actionLink(inputId = "cart1", label = "Add to cart", 
-                                          #                   icon = icon("shopping-cart")),
-
+                                                                          choices = table6[,1]),
+                                              #     actionLink(inputId = "cart1", label = "Add to cart", 
+                                              #                icon = icon("shopping-cart")),
+                                                   
                                                    selectInput(inputId = "select2",
                                                                label = "Item2:",
-                                                               choices =readRDS(url("https://github.com/ML1000-GroupB/Project/blob/main/table6.rds?raw=true"))[,1] ),
-                                          #         actionLink(inputId = "cart2", label = "Add to cart", 
-                                          #                    icon = icon("shopping-cart")),
+                                                               choices =table6[,1],selected=table1[2,1] ),
+                                             #      actionLink(inputId = "cart2", label = "Add to cart", 
+                                            #                  icon = icon("shopping-cart")),
                                                    
                                                    selectInput(inputId = "select3",
                                                                label = "Item3:",
-                                                               choices = readRDS(url("https://github.com/ML1000-GroupB/Project/blob/main/table6.rds?raw=true"))[,1]),
-                                         #          actionLink(inputId = "cart3", label = "Add to cart", 
-                                        #                      icon = icon("shopping-cart")),
+                                                               choices = table6[,1],selected=table1[3,1]),
+                                             #      actionLink(inputId = "cart3", label = "Add to cart", 
+                                            #                  icon = icon("shopping-cart")),
                                                    style = "info"),
                                    
                                    bsCollapsePanel("Dairy/Eggs", 
                                                    selectInput(inputId = "select4",
                                                                label = "Item1:",
-                                                               choices = readRDS(url("https://github.com/ML1000-GroupB/Project/blob/main/table3.rds?raw=true"))[,1]),
+                                                               choices = table3[,1]),
                                                    
-                                          #         actionLink(inputId = "cart4", label = "Add to cart", 
-                                           #                   icon = icon("shopping-cart")),
+                                           #        actionLink(inputId = "cart4", label = "Add to cart", 
+                                            #                  icon = icon("shopping-cart")),
                                                    style = "success"),
                                    
                                    bsCollapsePanel("Beverages", selectInput(inputId = "select5",
                                                                             label = "Item1:",
-                                                                            choices = readRDS(url("https://github.com/ML1000-GroupB/Project/blob/main/table2.rds?raw=true"))[,1]),
+                                                                            choices = table2[,1]),
                                                    
-                                           #        actionLink(inputId = "cart5", label = "Add to cart", 
-                                          #                    icon = icon("shopping-cart")),
+                                            #       actionLink(inputId = "cart5", label = "Add to cart", 
+                                            #                  icon = icon("shopping-cart")),
                                                    style = "info"),
                                    
                                    bsCollapsePanel("Deli", selectInput(inputId = "select6",
                                                                        label = "Item1:",
-                                                                       choices = readRDS(url("https://github.com/ML1000-GroupB/Project/blob/main/table4.rds?raw=true"))[,1]),
+                                                                       choices = table4[,1]),
                                                    
-                                          #         actionLink(inputId = "cart6", label = "Add to cart", 
-                                          #                    icon = icon("shopping-cart")),
+                                            #       actionLink(inputId = "cart6", label = "Add to cart", 
+                                            #                  icon = icon("shopping-cart")),
                                                    
                                                    style = "success"),
                                    
                                    bsCollapsePanel("Bakery", selectInput(inputId = "select7",
-                                                                         label = "Item1:",
-                                                                         choices = readRDS(url("https://github.com/ML1000-GroupB/Project/blob/main/table1.rds?raw=true"))[,1]),
+                                                                            label = "Item1:",
+                                                                            choices = table1[,1]),
                                                    
-                                             #      actionLink(inputId = "cart7", label = "Add to cart", 
+                                            #       actionLink(inputId = "cart7", label = "Add to cart", 
                                             #                  icon = icon("shopping-cart")),
                                                    style = "info"),
                                    
                                    bsCollapsePanel("Frozen", selectInput(inputId = "select8",
-                                                                         label = "Item1:",
-                                                                         choices = readRDS(url("https://github.com/ML1000-GroupB/Project/blob/main/table5.rds?raw=true"))[,1]),
+                                                                            label = "Item1:",
+                                                                            choices = table5[,1]),
                                                    
                                             #       actionLink(inputId = "cart8", label = "Add to cart", 
                                             #                  icon = icon("shopping-cart")),
                                                    style = "info")
-                                   
                         ),
                         actionButton("buynow", "ADD TO BAG",class = "btn-primary")
-                        
                       )),
              tabPanel("SHOPPING BAG",
                       h3("You have added below items "),
                       verbatimTextOutput("text10"),
                       br(),
                       br(),
-           #           dataTableOutput("tableorder"),
+                      dataTableOutput("tableorder"),
                       br(),
                       h3("You May Also Like"),
+                #      verbatimTextOutput("text1"),
+                #      verbatimTextOutput("text2"),
+                #      verbatimTextOutput("text3"),
+                #      verbatimTextOutput("text4"),
+                #      verbatimTextOutput("text5"),
+                #      verbatimTextOutput("text6"),
+                #      verbatimTextOutput("text7"),
+                #      verbatimTextOutput("text8"),
                       verbatimTextOutput("text9"),
                       
                       actionButton("paynow", "CHECK OUT",class = "btn-primary")
              ),
-           tabPanel("ORDERS",
-                    h3("You have checked out below items"),
-                    #                     verbatimTextOutput("text10"),
-                    br(),
-                    br(),
-                    dataTableOutput("tableconfirm"),
-                    br(),
-                    h3("Shoppers Also Viewed "),
-                    br(),
-                    br(),
-                    dataTableOutput("tablepred"),
-                    actionButton("confirmnow", "PLACE ORDER",class = "btn-primary"),
-                    br(),
-                    br(),
-                    bsModal(id="pop",title="Thank You !!",trigger="confirmnow",size="medium",
-                            verbatimTextOutput("thank")))
-           
-           )
+             tabPanel("ORDERS",
+                      h3("You have checked out below items"),
+                      verbatimTextOutput("text10"),
+                      br(),
+                      br(),
+                      dataTableOutput("tableconfirm"),
+                      br(),
+                      h3("Shoppers Also Viewed "),
+                      br(),
+                      br(),
+                      dataTableOutput("tablepred"),
+                      actionButton("confirmnow", "PLACE ORDER",class = "btn-primary"),
+                      br(),
+                      br(),
+                      bsModal(id="pop",title="Thank You !!",trigger="confirmnow",size="medium",
+                              verbatimTextOutput("thank")))
              
-           
+           )
   ),
   tabPanel("ABOUT US",icon=icon("tags"),
            h3("Why to associate with Smart cart?"),
@@ -157,9 +158,9 @@ server <- function(input, output,session) {
   
   X_apri_rule=readRDS(url("https://github.com/ML1000-GroupB/Project/blob/main/trained_rules_prior.rds?raw=true"))
   
+  
   observeEvent(
-    input$buynow, 
-    {
+    input$buynow, {
       
       rhs1 = reactive ({
         
@@ -296,7 +297,7 @@ server <- function(input, output,session) {
       output$text8 <-renderPrint(text8())
       
       
-      text9 <-reactive( {
+      text9 <-eventReactive(input$buynow, {
         
         cat("These items are frequently bought with the products in your cart: ",
             paste0(stri_unique(c(text1(),text2(),text3(),text4(),text5(),text6(),text7(),text8())),sep=",")
@@ -309,8 +310,8 @@ server <- function(input, output,session) {
       
       text10 <- reactive({
         
-            c(input$select1, input$select2, input$select3, input$select4,input$select5, input$select6,input$select7, input$select8 )
-#        print(input$select1)
+        #    c(input$select1, input$select2, input$select3, input$select4,input$select5, input$select6,input$select7, input$select8 )
+        print(input$select1)
       }
       )
       
@@ -320,9 +321,7 @@ server <- function(input, output,session) {
       
     }
   )
-  
-  
-  
+ 
   
   observeEvent(input$paynow, {
     
@@ -434,7 +433,10 @@ server <- function(input, output,session) {
   
   
   
-
+  
+  
+  
+  
   
   
 }
@@ -444,8 +446,5 @@ server <- function(input, output,session) {
 # Create the shiny app             #
 ####################################
 shinyApp(ui = ui, server = server )
-
-
-
 
 
