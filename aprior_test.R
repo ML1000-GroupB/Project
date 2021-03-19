@@ -428,6 +428,7 @@ server <- function(input, output,session) {
   
 }
 )
+}
 
 
 # Create the shiny app             #
