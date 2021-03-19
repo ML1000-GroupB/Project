@@ -91,12 +91,27 @@ shinyApp(ui <- navbarPage(
                                             #                  icon = icon("shopping-cart")),
                                                    style = "info"),
                                    
-                                   bsCollapsePanel("Frozen", selectInput(inputId = "select8",
+                                   bsCollapsePanel("Canned goods", selectInput(inputId = "select8",
                                                                          label = "Item1:",
                                                                          choices = readRDS(url("https://github.com/ML1000-GroupB/Project/blob/main/table5.rds?raw=true"))[,1]),
                                                    
                                             #       actionLink(inputId = "cart8", label = "Add to cart", 
                                             #                  icon = icon("shopping-cart")),
+                                                   style = "info"),
+                                   bsCollapsePanel("Household", selectInput(inputId = "select9",
+                                                                         label = "Item1:",
+                                                                         choices = readRDS(url("https://github.com/ML1000-GroupB/Project/blob/main/table7.rds?raw=true"))[,1]),
+                                                   
+                                                   #      actionLink(inputId = "cart7", label = "Add to cart", 
+                                                   #                  icon = icon("shopping-cart")),
+                                                   style = "info"),
+                                   
+                                   bsCollapsePanel("Pantry", selectInput(inputId = "select10",
+                                                                               label = "Item1:",
+                                                                               choices = readRDS(url("https://github.com/ML1000-GroupB/Project/blob/main/table8.rds?raw=true"))[,1]),
+                                                   
+                                                   #       actionLink(inputId = "cart8", label = "Add to cart", 
+                                                   #                  icon = icon("shopping-cart")),
                                                    style = "info")
                                    
                         ),
@@ -105,13 +120,13 @@ shinyApp(ui <- navbarPage(
                       )),
              tabPanel("SHOPPING BAG",
                       h3("You have added below items "),
-                      verbatimTextOutput("text10"),
+                      verbatimTextOutput("text12"),
                       br(),
                       br(),
            #           dataTableOutput("tableorder"),
                       br(),
                       h3("You May Also Like"),
-                      verbatimTextOutput("text9"),
+                      verbatimTextOutput("text11"),
                       
                       actionButton("paynow", "CHECK OUT",class = "btn-primary")
              ),
@@ -218,6 +233,20 @@ server <- function(input, output,session) {
         
       })   
       
+      rhs9 = reactive ({
+        
+        dynamicrule9=subset(X_apri_rule, lhs %in% input$select9)
+        rhs7=unique(dynamicrule9@rhs@itemInfo$labels[dynamicrule9@rhs@data@i+1])
+        
+      })   
+      
+      rhs10 = reactive ({
+        
+        dynamicrule10=subset(X_apri_rule, lhs %in% input$select10)
+        rhs10=unique(dynamicrule10@rhs@itemInfo$labels[dynamicrule10@rhs@data@i+1])
+        
+      })   
+      
       
       text1 <- reactive(
         
@@ -282,33 +311,49 @@ server <- function(input, output,session) {
           }
         }
       )
+
+      text9 <- reactive(
+        {
+          if (is_empty(rhs9())==FALSE) {
+            rhs9()
+          }
+        }
+      )
+      
+      text10 <- reactive(
+        {
+          if (is_empty(rhs10())==FALSE) {
+            rhs10()
+          }
+        }
+      )
       
       
-      
-      text9 <-reactive( {
+      text11 <-reactive( {
         
         cat("These items are frequently bought with the products in your cart: ",
-            paste0(stri_unique(c(text1(),text2(),text3(),text4(),text5(),text6(),text7(),text8())),sep=",")
+            paste0(stri_unique(c(text1(),text2(),text3(),text4(),text5(),text6(),text7(),text8(),text9(),text10())),sep=",")
             
         )
       }
       )
       
-      output$text9 <-renderPrint(text9())
+      output$text11 <-renderPrint(text11())
       
-      text10 <- reactive({
+      text12 <- reactive({
         
-            c(input$select1, input$select2, input$select3, input$select4,input$select5, input$select6,input$select7, input$select8 )
+            c(input$select1, input$select2, input$select3, input$select4,input$select5, input$select6,input$select7, input$select8, input$select9,input$select10 )
 #        print(input$select1)
       }
       )
       
-      output$text10 <-renderPrint(text10())
+      output$text12 <-renderPrint(text12())
       
   
   
 }
 )
+  
   
   
   
