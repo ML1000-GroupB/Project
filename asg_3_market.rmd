@@ -13,9 +13,9 @@ output:
 
 ## Abstract
 
-The main goal of recommender systems is to provide suggestions to online users to make better decisions from many alternatives available over the Web. A better recommender system is directed more towards personalized recommendations by taking into consideration information about a product, such as specifications, users' purchase history, comparison with other products, and so on, before making recommendations.
+The main goal of recommender systems is to provide suggestions to online users to make better decisions from many alternatives available over the Web. A better recommender system directs towards more personalized recommendations by taking into consideration information about a product, such as specifications, users' purchase history, comparison with other products, and so on, before making recommendations.
 
-We build two main recommender systems using the Instacart Online Grocery Shopping Dataset 2017. The first recommender system uses the APRIORI algorithm to mine for patterns between items which are frequently bought together. The results of the APRIORI method gives association rules between different products, so that if a customer has a certain item in their basket, other frequently bought items will be suggested. 
+We built two main recommender systems using the Instacart Online Grocery Shopping Dataset 2017. The first recommender system uses the APRIORI algorithm to mine for patterns between items which are frequently bought together. The results of the APRIORI method identifies association rules between different products, so that if a customer has a certain item in their basket, other frequently bought items will be suggested. 
 
 The second recommender system we built is using Weighted Alternating Least Squares with Implicit Feedback Data (WALSIFD). In the WALSIFD method, if a customer bought an item several times, it is assumed that there is positive feedback in terms of user preference for those items. The objective of this model is to identify products that has a high probability of being clicked on or purchased by a user, based on their previous transactions.
 
@@ -25,9 +25,7 @@ The second recommender system we built is using Weighted Alternating Least Squar
 
 ## Ethical Machine Learning Framework
 
-
-
-
+The Instacart Online Grocery Shopping dataset does not contain identifiable information for the users who made the transactions. User data does not contain any customer names, only anonymous user ids are included, which helps to maintain privacy of Instacart customers. Transaction data also does not include any sensitive information such as postal code. The current data set do not contain any information about gender or ethnicity, so this information will not have any influence on the recommendations predicted by the recommender systems. The Instacart R Shiny app is hosted on Shinyapps.io which is secure by design, where the application will run on its own protected environment, and access is SSL encrypted (RStudio, 2020). Only writers of the Instacart recommendation app is able to modify the code for the application, because user authentication is required for login to the shinyapps.io site where the application is hosted. 
 
 ## Data Understanding
 
@@ -924,6 +922,8 @@ Hahsler, M. and Chelluboina, S. (2017). Visualizing Association Rules: Introduct
 
 Hearst Magazine Media. (2021). The 15 Food Trends You are Going to See Everywhere in 2021. Retrieved from  https://www.delish.com/food/a35036824/food-trends-2021/
 
+Integrate.ai. (2018). Responsible AI in Consumer Enterprise. Retrieved from https://integrate.ai/resources/responsible-ai/
+
 Jabeen, H. (2018). Market Basket Analysis using R. Retrieved from 
   https://www.datacamp.com/community/tutorials/market-basket-analysis-r#code
 
@@ -933,6 +933,8 @@ Li, S. (2017). Advanced Modeling in R - A Gentle Introduction on Market Basket A
 
 Morgan, W. (2018). Weighted Alternating Least Squares with Implicit Feedback Data. GitHub.
   Retrieved from  https://github.com/willsmorgan/Recommender-Systems-using-W-ALS/blob/master/W-ALS%20Final.pdf
+
+RStudio. (2021). R Studio Shiny Apps [Online software]. Retrieved from https://rstudio.com/products/shinyapps/
 
 Stanley, J. (2017). 3 Million Instacart Orders, Open Sourced. Retrieved from 
   https://tech.instacart.com/3-million-instacart-orders-open-sourced-d40d29ead6f2
